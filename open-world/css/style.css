@@ -2030,7 +2030,8 @@ kbd {
 
 .nb-row {
   display: grid;
-  grid-template-columns: 1fr auto 28px;
+  grid-template-columns: 1fr auto auto auto 28px;
+  align-items: center;
   gap: 6px;
   padding: 2px 0;
   color: #dfe4ff;
@@ -2353,4 +2354,34 @@ body.gta-busted canvas#game {
   color: var(--gold);
   font-style: normal;
   font-size: 0.8rem;
+}
+
+.mode-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: #dfe5ff;
+  font-size: 0.95rem;
+  margin: 4px 0 10px;
+  cursor: pointer;
+}
+.mode-toggle input { width: 18px; height: 18px; accent-color: #28ff8a; cursor: pointer; }
+
+.nb-act {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 6px;
+  color: #fff;
+  cursor: pointer;
+  font-size: 0.85rem;
+  padding: 1px 5px;
+  pointer-events: auto;
+}
+.nb-act:hover { background: rgba(40, 255, 138, 0.25); }
+.nb-tip {
+  color: #9aa3c7;
+  font-size: 0.78rem;
+  margin-top: 4px;
+  max-width: 220px;
 }

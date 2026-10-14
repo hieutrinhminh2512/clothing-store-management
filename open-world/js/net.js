@@ -245,13 +245,36 @@ G.Net = (function () {
     if (!board) {
       board = document.createElement('div'); board.id = 'netBoard'; board.className = 'net-board';
       (document.getElementById('hud') || document.body).appendChild(board);
-      board.addEventListener('click', (e) => { if (e.target.closest('.nb-role')) N.openLobby(); });
+      board.addEventListener('click', (e) => {
+        if (e.target.closest('.nb-role')) { N.openLobby(); return; }
+        const b = e.target.closest('[data-act]'); if (!b) return;
+        if (b.dataset.act === 'gps') N.locate(b.dataset.id); else N.goTo(b.dataset.id);
+      });
     }
     board.classList.remove('hidden');
     const list = Object.values(N.players).sort((a, b) => (b.score || 0) - (a.score || 0));
     board.innerHTML = `<div class="nb-head">🌐 PHÒNG ${esc(N.room)} • ${list.length} người <button class="nb-role" title="Đổi vai / rời phòng">⚙</button></div>` +
-      list.map((p) => `<div class="nb-row${p.id === N.id ? ' me' : ''}"><span>${p.role === 'cop' ? '🚓' : '🚗'} ${esc(p.name)}</span><span class="nb-w">${p.wanted ? '★'.repeat(p.wanted) : ''}</span><span class="nb-s">${p.score || 0}</span></div>`).join('');
+      list.map((p) => `<div class="nb-row${p.id === N.id ? ' me' : ''}"><span>${p.role === 'cop' ? '🚓' : '🚗'} ${esc(p.name)}</span><span class="nb-w">${p.wanted ? '★'.repeat(p.wanted) : ''}</span>${p.id === N.id ? '' : `<button class="nb-act" data-act="gps" data-id="${p.id}" title="Chỉ đường tới người này">📍</button><button class="nb-act" data-act="tp" data-id="${p.id}" title="Dịch chuyển tới cạnh người này">⚡</button>`}<span class="nb-s">${p.score || 0}</span></div>`).join('') +
+      (list.length < 2 ? '<div class="nb-tip">Chưa có ai khác trong phòng — bạn bè phải nhập đúng mã phòng <b>' + esc(N.room) + '</b></div>' : '');
   }
+  // where is that player right now (latest network snapshot)
+  function remotePos(id) { const r = remotes.get(id); const s = r && r.snaps[r.snaps.length - 1]; return s ? { x: s[1], z: s[2], h: s[4] } : null; }
+  N.locate = function (id) {
+    const p = remotePos(id), info = N.players[id]; if (!p) { G.UI.toast('Chưa nhận được vị trí người này', 1800); return; }
+    G.Nav.set(p, { name: info ? info.name : 'Bạn bè', keep: true });
+    followId = id;
+  };
+  N.goTo = function (id) {
+    const p = remotePos(id), Gm = G.Game; if (!p) { G.UI.toast('Chưa nhận được vị trí người này', 1800); return; }
+    if (meWanted()) { G.UI.toast('Đang bị truy nã — không dịch chuyển được', 2000); return; }
+    if (Gm.flying) { G.UI.toast('Hạ cánh trước đã', 1800); return; }
+    // drop in on the road just behind them
+    const bx = p.x - Math.sin(p.h) * 14, bz = p.z - Math.cos(p.h) * 14, r = G.W.nearestRoadPose(bx, bz, p.h);
+    if (Gm.onFoot && Gm.char) Gm.char.setPose(r.x, r.z, r.heading); else { Gm.player.setPose(r.x, r.z, r.heading); Gm.player.vx = Gm.player.vz = 0; }
+    if (Gm.lookYaw) Gm.lookYaw(r.heading);
+    G.UI.toast('⚡ Đã tới cạnh ' + ((N.players[id] && N.players[id].name) || 'bạn bè'), 1800);
+  };
+  let followId = null, followT = 0;
   function addChat(d) {
     if (!chatBox) {
       chatBox = document.createElement('div'); chatBox.id = 'netChat'; chatBox.className = 'net-chat';
@@ -310,6 +333,12 @@ G.Net = (function () {
   N.update = function (dt, F) {
     if (!N.connected || !sock) return;
     updateRemotes(dt);
+    // GPS to a friend keeps tracking them as they move
+    if (followId) {
+      followT -= dt;
+      if (!G.Nav.active || !N.players[followId]) followId = null;
+      else if (followT <= 0) { followT = 1; const p = remotePos(followId); if (p) G.Nav.retarget(p.x, p.z); }
+    }
     sendT -= dt;
     if (sendT <= 0) {
       sendT = 1 / 15;

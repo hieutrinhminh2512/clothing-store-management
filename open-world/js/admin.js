@@ -42,14 +42,16 @@ G.Admin = (function () {
       try { return cb(bodies); } finally { p.mass = m; }
     };
     const PO = G.Police, pUpd = PO.update, addHeat = PO.addHeat;
+    // AI police off: admin toggle, or the player's own setting (J menu) — events that need police (pursuit) still work
+    const off = () => AD.noPolice || (G.save && G.save.settings.noPolice && !(G.Events.active && (G.Events.active.def || G.Events.active).type === 'pursuit'));
     PO.update = function (dt, player) {
-      if (AD.noPolice) { if (PO.active) PO.end(); PO.cooldown = 9999; }
+      if (off()) { if (PO.active) PO.end(); PO.cooldown = 9999; }
       if (AD.god) PO.bust = 0;
       const r = pUpd.call(PO, dt, player);
       if (AD.god && r && r.busted) return null; // safety net
       return r;
     };
-    PO.addHeat = function (v, pl) { if (AD.noPolice) return; return addHeat.call(PO, v, pl); };
+    PO.addHeat = function (v, pl) { if (off()) return; return addHeat.call(PO, v, pl); };
   }
 
   // ---------------- Actions ----------------

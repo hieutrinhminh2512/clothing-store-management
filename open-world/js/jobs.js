@@ -259,11 +259,19 @@ G.Jobs = (function () {
           <button class="mode-opt" data-m="police"><i>🚓</i><b>CẢNH SÁT TUẦN TRA</b><span>Lái xe tuần tra, tổng đài báo xe vi phạm — truy đuổi, ép dừng và bắt giữ để nhận thưởng.</span></button>
           <button class="mode-opt" data-m="online"><i>🌐</i><b>NHIỀU NGƯỜI CHƠI</b><span>Vào phòng online cùng bạn bè. Chọn làm CẢNH SÁT bắt người vi phạm hoặc DÂN THƯỜNG chạy tự do.</span></button>
         </div>
+        <label class="mode-toggle"><input type="checkbox" id="modeNoPolice"> 🚫 Tắt cảnh sát AI (không bị truy nã khi vi phạm)</label>
         <div class="mode-stats" id="modeStats"></div>
         <button class="btn" id="modeClose">✖ ĐÓNG <kbd>ESC</kbd></button>
       </div>`;
       document.body.appendChild(modal);
+      modal.querySelector('#modeNoPolice').onchange = (e) => {
+        G.save.settings.noPolice = e.target.checked; G.persist();
+        if (e.target.checked && G.Police.active) G.Police.end();
+        if (!e.target.checked) G.Police.cooldown = 3;
+        G.UI.toast(e.target.checked ? '🚫 Đã tắt cảnh sát AI' : '🚓 Đã bật cảnh sát AI', 1800);
+      };
       modal.addEventListener('click', (e) => {
+        if (e.target.closest('.mode-toggle')) return;
         if (e.target === modal || e.target.id === 'modeClose') { J.closeMenu(); return; }
         const b = e.target.closest('.mode-opt'); if (!b) return;
         G.Audio.ui && G.Audio.ui();
@@ -275,6 +283,7 @@ G.Jobs = (function () {
         const err = J.start(m); if (err) G.UI.toast(err, 3000);
       });
     }
+    modal.querySelector('#modeNoPolice').checked = !!G.save.settings.noPolice;
     const s = G.save.stats;
     modal.querySelector('#modeStats').textContent = '🚕 ' + (s.taxiTrips || 0) + ' chuyến taxi • 🚓 ' + (s.busts || 0) + ' lần bắt giữ' + (J.mode ? ' • Đang làm ca: ' + J.label() : '');
     modal.querySelectorAll('.mode-opt').forEach((b) => b.classList.toggle('on', (b.dataset.m === (J.mode || (G.Net && G.Net.connected ? 'online' : 'free')))));
