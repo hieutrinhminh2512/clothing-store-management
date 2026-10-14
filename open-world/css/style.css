@@ -2099,3 +2099,258 @@ kbd {
     grid-template-columns: 1fr;
   }
 }
+
+/* ---------- GTA systems (gta.js) ---------- */
+.gta-bars {
+  position: absolute;
+  left: 20px;
+  bottom: 248px;
+  width: 216px;
+  display: flex;
+  gap: 4px;
+}
+
+.gta-bars .gb {
+  flex: 1;
+  height: 8px;
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.gta-bars .gb i {
+  display: block;
+  height: 100%;
+  transform-origin: left;
+  transition: transform .2s;
+}
+
+.gta-bars .hp i {
+  background: linear-gradient(90deg, #2e9e3e, #5be36b);
+}
+
+.gta-bars .hp.low i {
+  background: linear-gradient(90deg, #b71c1c, #ff5252);
+}
+
+.gta-bars .ar i {
+  background: linear-gradient(90deg, #1565c0, #64b5f6);
+}
+
+.gta-bars.hit {
+  animation: gtaHit .35s;
+}
+
+@keyframes gtaHit {
+  0%, 100% { filter: none; }
+  30% { filter: drop-shadow(0 0 8px #ff1744) brightness(1.6); }
+}
+
+.gta-weap {
+  position: absolute;
+  right: 24px;
+  bottom: 40px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  background: rgba(8, 11, 22, 0.78);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  font-family: var(--font-d);
+  font-weight: 700;
+}
+
+.gta-weap .gw-i {
+  font-size: 1.6rem;
+}
+
+.gta-weap .gw-a {
+  color: var(--gold);
+  font-size: 1.2rem;
+}
+
+.gta-cross {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 22px;
+  height: 22px;
+  margin: -11px 0 0 -11px;
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+}
+
+.gta-cross::after {
+  content: '';
+  position: absolute;
+  left: 8px;
+  top: 8px;
+  width: 2px;
+  height: 2px;
+  background: #fff;
+  border-radius: 50%;
+}
+
+.gta-prompt {
+  position: absolute;
+  left: 50%;
+  bottom: 21%;
+  transform: translateX(-50%);
+  padding: 8px 18px;
+  border-radius: 999px;
+  background: rgba(8, 11, 22, 0.85);
+  border: 1px solid var(--gold);
+  color: #fff;
+  font-weight: 700;
+  letter-spacing: 1px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.gta-over {
+  position: fixed;
+  inset: 0;
+  z-index: 95;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  background: radial-gradient(circle, rgba(0, 0, 0, 0) 30%, rgba(0, 0, 0, 0.55) 100%);
+}
+
+.gta-over .go-t {
+  font-family: 'Pricedown', 'Arial Black', sans-serif;
+  font-size: 7rem;
+  font-weight: 900;
+  letter-spacing: 6px;
+  text-shadow: 0 4px 0 #000, 0 0 30px rgba(0, 0, 0, 0.8);
+  animation: gtaOver 1.2s ease-out;
+}
+
+.gta-over.wasted .go-t {
+  color: #c21f1f;
+}
+
+.gta-over.busted .go-t {
+  color: #f0f0f0;
+}
+
+.gta-over .go-s {
+  color: #ddd;
+  font-size: 1.2rem;
+  letter-spacing: 2px;
+  text-shadow: 0 2px 4px #000;
+}
+
+@keyframes gtaOver {
+  from { transform: scale(1.6); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+body.gta-wasted canvas#game {
+  filter: grayscale(1) contrast(1.15) brightness(0.8);
+}
+
+body.gta-busted canvas#game {
+  filter: grayscale(0.7) brightness(0.85);
+}
+
+.gs-sub {
+  color: #9aa3c7;
+  margin-bottom: 10px;
+}
+
+.gs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 55vh;
+  overflow-y: auto;
+}
+
+.gs-row {
+  display: grid;
+  grid-template-columns: 44px 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid transparent;
+}
+
+.gs-row.on {
+  border-color: var(--line);
+}
+
+.gs-i {
+  font-size: 1.6rem;
+  text-align: center;
+}
+
+.gs-sw {
+  display: inline-block;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+}
+
+.gs-n {
+  display: flex;
+  flex-direction: column;
+  font-weight: 700;
+}
+
+.gs-n small {
+  font-weight: 500;
+  color: #9aa3c7;
+}
+
+.gs-row .btn.off {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.gs-cash {
+  margin: 10px 0;
+  color: var(--gold);
+  font-weight: 700;
+}
+
+#hud .gta-weap.hidden {
+  display: none;
+}
+
+/* ---------- Aircraft HUD (air.js) ---------- */
+.air-hud {
+  position: absolute;
+  left: 50%;
+  bottom: 92px;
+  transform: translateX(-50%);
+  padding: 8px 18px;
+  border-radius: 12px;
+  background: rgba(8, 11, 22, 0.82);
+  border: 1px solid var(--line);
+  color: #fff;
+  font-size: 0.95rem;
+  white-space: nowrap;
+}
+
+.air-hud b {
+  color: var(--cyan);
+  font-family: var(--font-d);
+  font-size: 0.75rem;
+  letter-spacing: 1px;
+}
+
+.air-hud i {
+  color: var(--gold);
+  font-style: normal;
+  font-size: 0.8rem;
+}

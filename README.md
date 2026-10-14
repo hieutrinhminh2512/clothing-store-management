@@ -17,6 +17,13 @@ Bản thế giới mở nằm trong thư mục `open-world/`. **Mở `open-world
 - **GPS kiểu Google Maps**: bấm vào bản đồ (M) hoặc chọn địa điểm → tìm đường ngắn nhất trên toàn bộ mạng đường, vệt mũi tên xanh trên mặt đường, bảng "Rẽ phải sau 150 m vào Nguyễn Huệ", quãng đường + thời gian. Bản đồ cuộn để phóng to, kéo để di chuyển.
 - **Chế độ chơi (phím J)**: 🚕 **Chạy Taxi** (đón khách, chở tới địa chỉ, nhận cước + tiền boa) • 🚓 **Cảnh sát tuần tra** (truy đuổi, ép dừng và bắt xe vi phạm) • 🌐 **Nhiều người chơi** (chọn làm Cảnh sát hoặc Dân thường).
 
+- **Bản đồ mở rộng**: sân bay Tân Sơn (nhà ga, tháp điều khiển, máy bay đỗ, đường lăn, bãi trực thăng), Hồ Tây + đường ven hồ, đèo Mây uốn lượn qua đồi núi lên đỉnh ngắm cảnh, Xa lộ Đông cong vòng, trạm xăng, cảng container với cần cẩu. Vỉa hè đi bộ được (xe cũng leo lên được).
+- **Cơ chế kiểu GTA**: máu + giáp, người đi đường trên vỉa hè, **súng** (lục, tiểu liên, shotgun, trường) khi đi bộ, đấm, xe hư hỏng bốc khói → cháy → **nổ**, cảnh sát **bắn trả** từ 3 sao, **WASTED** (hồi sinh ở bệnh viện) / **BUSTED** (đồn công an).
+- **Địa điểm trong phố** (bấm **E**): 🏥 Bệnh viện (chữa trị) • 🚓 Đồn công an (nộp phạt xoá truy nã) • 🔫 AMMU-NATION (súng, đạn, áo giáp) • 🎨 PAY 'N' SPRAY (lái xe vào: sửa xe, sơn mới, cắt đuôi cảnh sát) • 👕 SUB-URBAN (quần áo).
+- **Trực thăng & máy bay** lái được: trực thăng ở sân bay và bãi stunt, máy bay phản lực ở sân đỗ (lăn ra đường băng để cất cánh). Đâm nhà / rơi xuống nước là nổ.
+
+**Phím GTA**: khi đi bộ **chuột phải** ngắm, **chuột trái** bắn/đấm, **1–5** hoặc lăn chuột đổi súng, **E** vào cửa hàng • Trực thăng: **Shift** lên, **Space** xuống, **W/S** bay tới/lùi, **A/D** xoay • Máy bay: **Shift/Space** tăng/giảm ga, **S** kéo mũi lên, **W** chúi xuống, **A/D** nghiêng cánh • **F** lên/xuống máy bay (khi đã đáp đất).
+
 **Chơi nhiều người**: chạy server (`cd racing-game && npm install && npm start`), mở `http://localhost:3000/open-world/`, nhấn **J › Nhiều người chơi**, chọn vai và mã phòng. Bạn bè cùng mạng vào `http://<IP-máy-bạn>:3000/open-world/` với cùng mã phòng. Dân thường chạy quá 120 km/h trong phố gần cảnh sát (hoặc đâm xe cảnh sát) sẽ bị truy nã; cảnh sát ép dừng trong 10 m khoảng 2,5 giây để bắt giữ. Enter để chat.
 
 **Phím lái xe**: W/S ga-phanh • A/D lái • Space phanh tay • Shift nitro • E sự kiện • G gara • M bản đồ • C camera • R đặt lại xe • H còi • T +1 giờ • Esc menu

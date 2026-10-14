@@ -53,16 +53,16 @@ G.W = (function () {
             const cx = G.clamp(x, c.x0, c.x1), cz = G.clamp(z, c.z0, c.z1);
             let dx = x - cx, dz = z - cz; const d2 = dx * dx + dz * dz;
             if (d2 >= r * r) continue;
-            if (d2 > 1e-8) { const d = Math.sqrt(d2); fn(dx / d, dz / d, r - d); }
+            if (d2 > 1e-8) { const d = Math.sqrt(d2); fn(dx / d, dz / d, r - d, c); }
             else { // centre inside the box: push out along the shallowest side
               const l0 = x - c.x0, l1 = c.x1 - x, l2 = z - c.z0, l3 = c.z1 - z, m = Math.min(l0, l1, l2, l3);
-              if (m === l0) fn(-1, 0, l0 + r); else if (m === l1) fn(1, 0, l1 + r); else if (m === l2) fn(0, -1, l2 + r); else fn(0, 1, l3 + r);
+              if (m === l0) fn(-1, 0, l0 + r, c); else if (m === l1) fn(1, 0, l1 + r, c); else if (m === l2) fn(0, -1, l2 + r, c); else fn(0, 1, l3 + r, c);
             }
             hit = true;
           } else {
             const dx = x - c.x, dz = z - c.z, rr = r + c.r, d2 = dx * dx + dz * dz;
             if (d2 >= rr * rr) continue;
-            const d = Math.sqrt(d2) || 1e-4; fn(dx / d, dz / d, rr - d); hit = true;
+            const d = Math.sqrt(d2) || 1e-4; fn(dx / d, dz / d, rr - d, c); hit = true;
           }
         }
       }

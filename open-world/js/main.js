@@ -102,7 +102,35 @@ G.Game = (function () {
     return v;
   };
   Gm.scene = () => scene;
-  Gm.focus = () => (Gm.onFoot ? Gm.char : Gm.player);
+  Gm.camYaw = () => camYaw;
+  Gm.lookYaw = (y) => { camYaw = footYaw = y; };
+  // put the player somewhere (hospital / police station): on foot at pose, their car parked at carPose
+  Gm.respawn = function (pose, carPose) {
+    enterT = exitT = null;
+    if (Gm.flying) { if (G.Air) G.Air.abandon(Gm.flying); Gm.flying = null; }
+    const P = Gm.player, C = Gm.char;
+    if (carPose) { P.setPose(carPose.x, carPose.z, carPose.heading); P.vx = P.vz = 0; }
+    if (!Gm.onFoot) { Gm.onFoot = true; P.isPlayer = false; parkInput(P); setFootHud(true); }
+    C.setPose(pose.x, pose.z, pose.heading); C.mesh.visible = true; C.knockT = 0;
+    footYaw = pose.heading; footPitch = 0.22; footPivot.set(C.x, C.y + 1.55, C.z); camYaw = pose.heading;
+  };
+  // swap the walking character's model (clothes shop)
+  Gm.setOutfit = function (outfit) {
+    const old = Gm.char, C = new G.Character({ outfit });
+    C.setPose(old.x, old.z, old.heading); C.mesh.visible = old.mesh.visible;
+    scene.remove(old.mesh); scene.add(C.mesh); Gm.char = C;
+    return C;
+  };
+  Gm.flying = null; // aircraft being piloted (air.js); the character stays "on foot" but hidden
+  Gm.focus = () => Gm.flying || (Gm.onFoot ? Gm.char : Gm.player);
+  Gm.setFlying = function (a, exitPose) {
+    const C = Gm.char;
+    if (a) { Gm.flying = a; C.mesh.visible = false; setFootHud(false); hint(''); camYaw = a.heading; return; }
+    Gm.flying = null; enterT = exitT = null;
+    if (exitPose) C.setPose(exitPose.x, exitPose.z, exitPose.heading);
+    C.mesh.visible = true; setFootHud(true);
+    footYaw = C.heading; footPitch = 0.22; footPivot.set(C.x, C.y + 1.55, C.z);
+  };
 
   // ---------------- On foot: exit / enter / car-jacking ----------------
   const JACK_MAP = { sedan: 'vanta', hatch: 'kitsune', suv: 'titan', van: 'titan', taxi: 'vanta' };
@@ -162,6 +190,7 @@ G.Game = (function () {
     }
   }
   Gm.exitVehicle = function () {
+    if (Gm.flying) return G.Air.exit();
     if (Gm.onFoot || Gm.state !== 'play' || Gm.garage || enterT || !Gm.char) return false;
     if (G.Events.active) { G.UI.toast('Không thể xuống xe khi đang trong sự kiện'); return false; }
     if (G.Jobs && G.Jobs.mode) { G.UI.toast('Đang làm ca ' + G.Jobs.label() + ' — nhấn J để kết thúc ca trước khi xuống xe'); return false; }
@@ -189,7 +218,15 @@ G.Game = (function () {
     enterT = { v, t: 0, at: 0, side };
     return true;
   };
-  Gm.toggleVehicle = function () { return Gm.onFoot ? Gm.enterVehicle() : Gm.exitVehicle(); };
+  Gm.toggleVehicle = function () {
+    if (Gm.flying) return G.Air.exit();
+    if (Gm.onFoot && G.Air && !enterT && !exitT) {
+      const a = G.Air.near(Gm.char), tg = enterTarget();
+      const dc = tg ? Math.hypot((tg.v || tg.t).x - Gm.char.x, (tg.v || tg.t).z - Gm.char.z) : Infinity;
+      if (a && a.dist < dc) return G.Air.board(a.a);
+    }
+    return Gm.onFoot ? Gm.enterVehicle() : Gm.exitVehicle();
+  };
   function finishEnter(v) {
     const old = Gm.player;
     if (v !== old) {
@@ -309,6 +346,7 @@ G.Game = (function () {
     const P = Gm.player;
     const sim = Gm.state === 'play' && !Gm.paused && !Gm.simPaused && !Gm.garage && !G.UI.mapOpen;
     if (sim) simulate(dt);
+    if (sim && G.Air) G.Air.update(dt);
     else if (Gm.state === 'play' && !Gm.paused && !Gm.garage) { P.syncMesh(0); }
 
     // day / night
@@ -354,6 +392,11 @@ G.Game = (function () {
     if (I.consume('KeyG')) Gm.openGarage();
     // F (or gamepad Y) = get in / out of a car
     if (I.consume('KeyF') || padY()) { I.consume('KeyC'); Gm.toggleVehicle(); }
+    if (Gm.flying) {
+      if (I.consume('KeyC')) { Gm.camMode = (Gm.camMode + 1) % 2; G.UI.toast(Gm.camMode ? 'Camera: Xa' : 'Camera: Gần', 1000); }
+      I.consume('KeyH'); I.consume('KeyE'); I.consume('KeyR');
+      return;
+    }
     if (Gm.onFoot) {
       I.consume('KeyC'); I.consume('KeyH'); I.consume('KeyE');
       if (I.consume('KeyR')) resetPlayer();
@@ -417,7 +460,7 @@ G.Game = (function () {
   const footHud = { speed: 0, fwdSpeed: 0, gear: 0, rpm: 800, nitro: 0, perf: { nitroCap: 1 }, input: { throttle: 0 } };
   function simulateFoot(dt) {
     const C = Gm.char, P = Gm.player;
-    const ctl = footControl(dt);
+    const ctl = G.GTA && G.GTA.frozen ? (C.control(0, 0), true) : footControl(dt);
     if (!Gm.onFoot) return; // just got into a car
     if (ctl) C.update(dt);
     parkInput(P); P.update(dt);
@@ -431,7 +474,7 @@ G.Game = (function () {
     const pr = G.Police.update(dt, C);
     if (pr && !G.Events.onPursuitEnd(pr)) {
       if (pr.escaped) { const r = pr.level * 600; G.save.cash += r; G.save.stats.escapes++; G.Audio.cash(); G.UI.popup('ĐÃ CẮT ĐUÔI! +$' + r, '#28ff8a'); }
-      else { const fine = Math.min(5000, Math.round(G.save.cash * 0.1)); G.save.cash -= fine; flash = 0.8; G.Audio.fail(); G.UI.toast('🚔 BỊ BẮT! Nộp phạt ' + G.fmtMoney(fine), 3500); }
+      else { const fine = Math.min(5000, Math.round(G.save.cash * 0.1)); G.save.cash -= fine; flash = 0.8; G.Audio.fail(); G.UI.toast('🚔 BỊ BẮT! Nộp phạt ' + G.fmtMoney(fine), 3500); if (G.GTA) G.GTA.busted(); }
       G.persist();
     }
     // cars vs cars, then the character vs every car around
@@ -447,17 +490,50 @@ G.Game = (function () {
     G.UI.hud(footHud, G.save.hour);
     G.UI.minimap(C, cops, racers, G.Traffic.cars);
     G.Nav.update(dt, C, Gm.time);
+    if (G.GTA) G.GTA.update(dt, C);
     if (G.Net) G.Net.update(dt, C);
     // context hint: what F does here
     const tg = !enterT && !exitT && C.knockT <= 0 ? enterTarget() : null;
-    hint(tg ? (tg.t ? '[F] Cướp xe' : '[F] Lên xe') : '');
+    const air = G.Air && !enterT && !exitT ? G.Air.near(C) : null;
+    hint(air ? '[F] Lái ' + air.a.label : (tg ? (tg.t ? '[F] Cướp xe' : '[F] Lên xe') : ''));
+    saveT += dt; if (saveT > 8) { saveT = 0; G.persist(); }
+  }
+
+  const airHud = { speed: 0, fwdSpeed: 0, gear: 0, rpm: 800, nitro: 0, perf: { nitroCap: 1 }, input: { throttle: 0 } };
+  function simulateAir(dt) {
+    const A = Gm.flying, P = Gm.player;
+    G.Air.fly(A, dt);
+    if (!Gm.flying) return; // crashed or landed + got out
+    parkInput(P); P.update(dt); P.syncMesh(dt);
+    updateParked(dt, A);
+    const cops = G.Police.cops, racers = G.Events.racers();
+    G.Traffic.update(dt, Gm.time, A, [P, ...Gm.parked, ...cops, ...racers]);
+    G.Events.nearMarker = null;
+    const pr = G.Police.update(dt, A);
+    if (pr && !G.Events.onPursuitEnd(pr)) {
+      if (pr.escaped) { const r = pr.level * 900; G.save.cash += r; G.Audio.cash(); G.UI.popup('ĐÃ CẮT ĐUÔI! +$' + r, '#28ff8a'); }
+      else if (G.GTA) G.GTA.busted();
+      G.persist();
+    }
+    G.collideBodies(nearBodies(P, [P, ...Gm.parked, ...cops]));
+    G.Traffic.postCollide();
+    if (A.shake) { shake = Math.max(shake, A.shake); A.shake = 0; }
+    G.Audio.update(A, G.Police.active ? 0.4 : 0, false);
+    airHud.speed = airHud.fwdSpeed = A.speed; airHud.rpm = A.rpm; airHud.gear = 0; airHud.nitro = A.throttle; airHud.input.throttle = A.input.throttle;
+    G.UI.hud(airHud, G.save.hour);
+    G.UI.minimap(A, cops, racers, G.Traffic.cars);
+    G.Nav.update(dt, A, Gm.time);
+    if (G.GTA) G.GTA.update(dt, A);
+    if (G.Net) G.Net.update(dt, A);
     saveT += dt; if (saveT > 8) { saveT = 0; G.persist(); }
   }
 
   function simulate(dt) {
+    if (Gm.flying) { simulateAir(dt); return; }
     if (Gm.onFoot) { simulateFoot(dt); return; }
     const P = Gm.player, inp = G.input.state;
     Object.assign(P.input, { throttle: inp.throttle, brake: inp.brake, steer: inp.steer, handbrake: inp.handbrake, nitro: inp.nitro });
+    if (G.GTA && G.GTA.frozen) Object.assign(P.input, { throttle: 0, brake: 1, steer: 0, nitro: false });
     if (G.Events.freeze) { P.input.throttle = 0; P.input.nitro = false; }
     P.update(dt);
     if (P.surface === 'water') {
@@ -475,7 +551,7 @@ G.Game = (function () {
     if (pr) {
       if (!G.Events.onPursuitEnd(pr)) {
         if (pr.escaped) { const r = pr.level * 900; G.save.cash += r; G.save.stats.escapes++; G.Audio.cash(); G.UI.popup('ĐÃ CẮT ĐUÔI! +$' + r, '#28ff8a'); }
-        else { const fine = Math.min(5000, Math.round(G.save.cash * 0.1)); G.save.cash -= fine; flash = 0.8; G.Audio.fail(); G.UI.toast('🚔 BỊ BẮT! Nộp phạt ' + G.fmtMoney(fine), 3500); resetPlayer(); }
+        else { const fine = Math.min(5000, Math.round(G.save.cash * 0.1)); G.save.cash -= fine; flash = 0.8; G.Audio.fail(); G.UI.toast('🚔 BỊ BẮT! Nộp phạt ' + G.fmtMoney(fine), 3500); if (G.GTA) G.GTA.busted(); else resetPlayer(); }
         G.persist();
       }
     }
@@ -501,6 +577,7 @@ G.Game = (function () {
     G.UI.hud(P, G.save.hour);
     G.UI.minimap(P, cops, racers, G.Traffic.cars);
     G.Nav.update(dt, P, Gm.time);
+    if (G.GTA) G.GTA.update(dt, P);
     if (G.Jobs) G.Jobs.update(dt, P);
     if (G.Net) G.Net.update(dt, P);
     saveT += dt; if (saveT > 8) { saveT = 0; G.persist(); }
@@ -509,16 +586,16 @@ G.Game = (function () {
   // ---------------- Cameras ----------------
   // third-person over-the-shoulder camera for walking around
   function footCamera(dt) {
-    const C = Gm.char, K = G.input.keys;
+    const C = Gm.char, K = G.input.keys, aim = G.GTA && G.GTA.aiming;
     if (K.KeyQ) { footYaw += 2.2 * dt; lastMouse = Gm.time; }
     if (K.KeyE) { footYaw -= 2.2 * dt; lastMouse = Gm.time; }
     // drift back behind the character while it moves and the camera isn't being steered
     const dh = G.wrapAngle(C.heading - footYaw);
-    if (Gm.time - lastMouse > 2 && C.speed > 1.5 && !exitT && Math.abs(dh) < 1.1) footYaw += dh * (1 - Math.exp(-1.2 * dt));
+    if (!aim && Gm.time - lastMouse > 2 && C.speed > 1.5 && !exitT && Math.abs(dh) < 1.1) footYaw += dh * (1 - Math.exp(-1.2 * dt));
     footPivot.x = G.damp(footPivot.x, C.x, 14, dt); footPivot.z = G.damp(footPivot.z, C.z, 14, dt);
     footPivot.y = G.damp(footPivot.y, C.y + 1.55, 8, dt);
     const fx = Math.sin(footYaw), fz = Math.cos(footYaw), sx = -fz, sz = fx; // forward / right (screen)
-    const dist = 3.9 + footPitch * 1.2, sh = 0.55, back = dist * Math.cos(footPitch);
+    const dist = aim ? 2.3 : 3.9 + footPitch * 1.2, sh = aim ? 0.8 : 0.55, back = dist * Math.cos(footPitch);
     let x = footPivot.x - fx * back + sx * sh, z = footPivot.z - fz * back + sz * sh;
     // pull in toward the character when a building / tree is in the way
     for (let k = 1; ; k -= 0.1) {
@@ -531,11 +608,26 @@ G.Game = (function () {
     if (shake > 0) { camera.position.x += (Math.random() - 0.5) * shake * 0.4; camera.position.y += (Math.random() - 0.5) * shake * 0.3; shake = Math.max(0, shake - dt * 2.5); }
     lookTmp.set(footPivot.x + fx * 6 + sx * sh * 0.6, footPivot.y - 0.1 - footPitch * 1.2, footPivot.z + fz * 6 + sz * sh * 0.6);
     camera.lookAt(lookTmp);
-    fov = G.damp(fov, 58 + G.clamp((C.speed - 4.5) * 1.5, 0, 6), 4, dt);
+    fov = G.damp(fov, aim ? 46 : 58 + G.clamp((C.speed - 4.5) * 1.5, 0, 6), aim ? 10 : 4, dt);
     if (Math.abs(camera.fov - fov) > 0.05) { camera.fov = fov; camera.updateProjectionMatrix(); }
     camYaw = footYaw; camY = y;
   }
+  function airCamera(dt) {
+    const A = Gm.flying, far = Gm.camMode ? 1.6 : 1;
+    const back = A.camDist * far, up = A.camUp * far;
+    camYaw += G.wrapAngle(A.heading - camYaw) * (1 - Math.exp(-3 * dt));
+    const pitch = A.type === 'jet' ? A.pitch * 0.6 : 0;
+    camTmp.set(A.x - Math.sin(camYaw) * back * Math.cos(pitch), A.y + up - Math.sin(pitch) * back, A.z - Math.cos(camYaw) * back * Math.cos(pitch));
+    camTmp.y = Math.max(camTmp.y, G.W.groundHeight(camTmp.x, camTmp.z) + 1.5);
+    camera.position.lerp(camTmp, 1 - Math.exp(-8 * dt));
+    if (shake > 0) { camera.position.x += (Math.random() - 0.5) * shake; camera.position.y += (Math.random() - 0.5) * shake * 0.6; shake = Math.max(0, shake - dt * 2.5); }
+    lookTmp.set(A.x + Math.sin(A.heading) * 6, A.y + 1.5, A.z + Math.cos(A.heading) * 6);
+    camera.lookAt(lookTmp);
+    fov = G.damp(fov, 62 + G.clamp(A.speed * 0.12, 0, 14), 3, dt);
+    if (Math.abs(camera.fov - fov) > 0.05) { camera.fov = fov; camera.updateProjectionMatrix(); }
+  }
   function chaseCamera(dt) {
+    if (Gm.flying) { airCamera(dt); return; }
     if (Gm.onFoot && Gm.char) { footCamera(dt); return; }
     const P = Gm.player;
     const fx = Math.sin(P.heading), fz = Math.cos(P.heading);
