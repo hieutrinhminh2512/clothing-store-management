@@ -77,6 +77,58 @@ G.W = (function () {
     return false;
   };
 
+  // ---------------- Extra districts: curved roads, paved areas, lakes ----------------
+  // districts.js registers these before the city is built; they take part in onRoad/surface,
+  // the road mesh, the minimap, nearestRoadPose and the GPS graph.
+  const XCELL = 60, xhash = new Map();
+  W.extra = { roads: [], paved: [], waters: [], foot: [], noTrees: [] };
+  // pts: control points [{x,z}] -> smooth centre-line sampled every ~6 m
+  W.addRoad = function (pts, width, name, opts) {
+    opts = opts || {};
+    const curve = new THREE.CatmullRomCurve3(pts.map((p) => new THREE.Vector3(p.x, 0, p.z)), !!opts.closed, 'centripetal');
+    const len = curve.getLength(), n = Math.max(2, Math.round(len / 6));
+    const out = curve.getSpacedPoints(n).map((v) => ({ x: v.x, z: v.z }));
+    if (opts.closed) out.pop();
+    const road = { pts: out, hw: width / 2, name: name || '', closed: !!opts.closed, lanes: opts.lanes || 1 };
+    W.extra.roads.push(road);
+    const segs = out.length - (road.closed ? 0 : 1);
+    for (let i = 0; i < segs; i++) {
+      const a = out[i], b = out[(i + 1) % out.length], seg = { a, b, hw: road.hw, road };
+      for (let ix = Math.floor((Math.min(a.x, b.x) - road.hw) / XCELL); ix <= Math.floor((Math.max(a.x, b.x) + road.hw) / XCELL); ix++)
+        for (let iz = Math.floor((Math.min(a.z, b.z) - road.hw) / XCELL); iz <= Math.floor((Math.max(a.z, b.z) + road.hw) / XCELL); iz++) {
+          const k = hkey(ix, iz); let l = xhash.get(k); if (!l) xhash.set(k, l = []); l.push(seg);
+        }
+    }
+    return road;
+  };
+  W.addPaved = (r, name) => { W.extra.paved.push(Object.assign({ name }, r)); };
+  W.addWater = (c) => { W.extra.waters.push(c); };       // {x,z,r} circle lake
+  W.addFootprint = (r) => { W.extra.foot.push(r); };     // building outline for the minimap
+  W.noTrees = (r) => { W.extra.noTrees.push(r); };       // {x0,x1,z0,z1} or {x,z,r}
+  W.addCollider = (c) => addCollider(c);
+  // nearest point on an extra road within range: {x,z,dx,dz,d,road}
+  function extraNear(x, z, range) {
+    let best = null, bd = range;
+    for (let ix = Math.floor((x - range) / XCELL); ix <= Math.floor((x + range) / XCELL); ix++)
+      for (let iz = Math.floor((z - range) / XCELL); iz <= Math.floor((z + range) / XCELL); iz++) {
+        const l = xhash.get(hkey(ix, iz)); if (!l) continue;
+        for (const sg of l) {
+          const dx = sg.b.x - sg.a.x, dz = sg.b.z - sg.a.z, l2 = dx * dx + dz * dz || 1;
+          const t = G.clamp(((x - sg.a.x) * dx + (z - sg.a.z) * dz) / l2, 0, 1);
+          const px = sg.a.x + dx * t, pz = sg.a.z + dz * t, d = Math.hypot(px - x, pz - z) - sg.hw;
+          if (d < bd) { const ll = Math.sqrt(l2); bd = d; best = { x: px, z: pz, dx: dx / ll, dz: dz / ll, d, road: sg.road }; }
+        }
+      }
+    return best;
+  }
+  W.extraNear = extraNear;
+  W.isWater = function (x, z) {
+    if (z > C.SEA_Z) return true;
+    for (const w of W.extra.waters) if ((x - w.x) ** 2 + (z - w.z) ** 2 < w.r * w.r) return true;
+    return false;
+  };
+  function inPaved(x, z, m) { for (const r of W.extra.paved) if (x >= r.x0 - m && x <= r.x1 + m && z >= r.z0 - m && z <= r.z1 + m) return true; return false; }
+
   // ---------------- Ring highway path ----------------
   function buildRingPath() {
     const raw = [], k = RING - RR;
@@ -116,10 +168,12 @@ G.W = (function () {
     if (x >= RUNWAY.x0 - m && x <= RUNWAY.x1 + m && z >= RUNWAY.z0 - m && z <= RUNWAY.z1) return true;
     if (x >= PAD.x0 - m && x <= PAD.x1 + m && z >= PAD.z0 - m && z <= PAD.z1 + m) return true;
     if (x >= CONNECT.x0 && x <= CONNECT.x1 && z >= CONNECT.z0 - m && z <= CONNECT.z1 + m) return true;
+    if (inPaved(x, z, m)) return true;
+    const e = extraNear(x, z, m + 1); if (e && e.d <= m) return true;
     return false;
   };
   W.surface = function (x, z) {
-    if (z > C.SEA_Z) return 'water';
+    if (W.isWater(x, z) && !W.onRoad(x, z)) return 'water';
     if (W.onRoad(x, z)) return 'road';
     // plaza block is paved and drivable
     const r = W.blockRect(5, 5);
@@ -131,8 +185,13 @@ G.W = (function () {
   // ---------------- Ramps ----------------
   W.ramps = [];
   function addRamp(x, z, ang, w, len, h) { W.ramps.push({ x, z, ang, w, len, h, s: Math.sin(ang), c: Math.cos(ang) }); }
+  const SLAB = 0.28;
   W.groundHeight = function (x, z) {
     let h = 0;
+    if (x > -HALF && x < HALF && z > -HALF && z < HALF) {
+      const bi = Math.floor((x + HALF) / P), bj = Math.floor((z + HALF) / P), lx = x - lines[bi], lz = z - lines[bj];
+      if (lx > HR && lx < P - HR && lz > HR && lz < P - HR) { const t = special[bi + ',' + bj]; if (t !== 'park' && t !== 'plaza') h = SLAB; }
+    }
     for (const r of W.ramps) {
       const dx = x - r.x, dz = z - r.z;
       const u = dx * r.s + dz * r.c;          // along the ramp
@@ -187,11 +246,14 @@ G.W = (function () {
     cands.push({ x: a.x, z: a.y, dirx: tx, dirz: tz });
     if (x > RUNWAY.x0 - 200 && x < RUNWAY.x1 + 200 && z < RUNWAY.z1 && z > RUNWAY.z0) cands.push({ x: 0, z, dirx: 0, dirz: fz >= 0 ? 1 : -1 });
     if (z > BEACH_Z - 150 && Math.abs(x) < BEACH_X) cands.push({ x, z: BEACH_Z, dirx: fx >= 0 ? 1 : -1, dirz: 0 });
+    const e = extraNear(x, z, 400);
+    if (e) { const s2 = e.dx * fx + e.dz * fz < 0 ? -1 : 1; cands.push({ x: e.x, z: e.z, dirx: e.dx * s2, dirz: e.dz * s2, lane: Math.min(4.5, e.road.hw * 0.5) }); }
     let res = null; bd = Infinity;
     for (const c of cands) { const d = (c.x - x) ** 2 + (c.z - z) ** 2; if (d < bd) { bd = d; res = c; } }
     // keep right: offset to the right-hand lane
     const rx = -res.dirz, rz = res.dirx;
-    return { x: res.x + rx * 4.5, z: res.z + rz * 4.5, heading: Math.atan2(res.dirx, res.dirz) };
+    const ln = res.lane !== undefined ? res.lane : 4.5;
+    return { x: res.x + rx * ln, z: res.z + rz * ln, heading: Math.atan2(res.dirx, res.dirz) };
   };
 
   // ================================================================
@@ -237,6 +299,7 @@ G.W = (function () {
   W.build = function (scene) {
     G.rng.seed(20240611);
     const R = G.rng;
+    if (G.Districts) G.Districts.define(W);
     const tAsphalt = G.TEX.asphalt(), tGrass = G.TEX.grass(), tSand = G.TEX.sand(), tConcrete = G.TEX.concrete(), tPlaza = G.TEX.plaza();
 
     // ---------- Ground layers ----------
@@ -273,6 +336,16 @@ G.W = (function () {
     rect(RUNWAY.x0, RUNWAY.z0, RUNWAY.x1, RUNWAY.z1);
     rect(PAD.x0, PAD.z0, PAD.x1, PAD.z1);
     rect(CONNECT.x0, CONNECT.z0, CONNECT.x1, CONNECT.z1);
+    for (const r of W.extra.paved) if (!r.noMesh) rect(r.x0, r.z0, r.x1, r.z1);
+    for (const rd of W.extra.roads) {
+      const p = rd.pts, n = p.length, segs = rd.closed ? n : n - 1;
+      const nrm = (i) => { const a = p[rd.closed ? (i - 1 + n) % n : Math.max(0, i - 1)], b = p[rd.closed ? (i + 1) % n : Math.min(n - 1, i + 1)], l = Math.hypot(b.x - a.x, b.z - a.z) || 1; return { x: -(b.z - a.z) / l, z: (b.x - a.x) / l }; };
+      for (let i = 0; i < segs; i++) {
+        const a = p[i], b = p[(i + 1) % n], na = nrm(i), nb = nrm((i + 1) % n), w = rd.hw;
+        // wound so the face points up (DoubleSide would otherwise light it from below)
+        quad(a.x - na.x * w, a.z - na.z * w, b.x - nb.x * w, b.z - nb.z * w, b.x + nb.x * w, b.z + nb.z * w, a.x + na.x * w, a.z + na.z * w);
+      }
+    }
     // plaza
     // ring strip
     const ring = W.ring;
@@ -318,7 +391,8 @@ G.W = (function () {
       }
       if (type === 'plaza') { buildPlaza(scene, cx, cz, size); continue; }
       slabs.push({ x: cx, z: cz, s: size });
-      addCollider({ t: 'box', x0: r.x0, x1: r.x1, z0: r.z0, z1: r.z1 });
+      const SW = C.SIDEWALK;
+      addCollider({ t: 'box', x0: r.x0 + SW, x1: r.x1 - SW, z0: r.z0 + SW, z1: r.z1 - SW, h: dist < 2 ? 280 : (dist < 3.6 ? 120 : 26) });
       if (type === 'stadium') { buildStadium(scene, cx, cz); continue; }
 
       const inner = { x0: r.x0 + C.SIDEWALK, x1: r.x1 - C.SIDEWALK, z0: r.z0 + C.SIDEWALK, z1: r.z1 - C.SIDEWALK };
@@ -433,6 +507,7 @@ G.W = (function () {
     buildTrees(scene, trees);
     buildRampsAndPad(scene);
     buildMountains(scene);
+    if (G.Districts) G.Districts.build(scene, W);
     buildMap(bld);
   };
 
@@ -673,7 +748,7 @@ G.W = (function () {
     while (trees.length < 1700 && tries++ < 20000) {
       const x = R.range(-2600, 2600), z = R.range(-2700, BEACH_Z - 30);
       if (Math.abs(x) < RING + 30 && Math.abs(z) < RING + 30) continue;
-      if (W.onRoad(x, z, 10)) continue;
+      if (W.onRoad(x, z, 10) || W.isWater(x, z) || blockedForTrees(x, z)) continue;
       if (x > PAD.x0 - 30 && x < PAD.x1 + 30 && z > PAD.z0 - 30 && z < PAD.z1 + 30) continue;
       if (Math.abs(x) < 80 && z < RUNWAY.z1 + 50 && z > RUNWAY.z0 - 80) continue;
       // clusters: keep with probability from low-frequency noise
@@ -683,6 +758,13 @@ G.W = (function () {
     }
     // palm-ish trees along the beach
     for (let x = -BEACH_X; x < BEACH_X; x += 28) trees.push({ x: x + R.range(-6, 6), z: BEACH_Z + R.range(18, 28), s: 1.1, pine: false, palm: true });
+  }
+  function blockedForTrees(x, z) {
+    for (const r of W.extra.noTrees) {
+      if (r.r !== undefined) { if ((x - r.x) ** 2 + (z - r.z) ** 2 < r.r * r.r) return true; }
+      else if (x > r.x0 && x < r.x1 && z > r.z0 && z < r.z1) return true;
+    }
+    return false;
   }
   function buildTrees(scene, trees) {
     const trunkGeo = new THREE.CylinderGeometry(0.25, 0.4, 4, 6); trunkGeo.translate(0, 2, 0);
@@ -784,7 +866,7 @@ G.W = (function () {
   }
 
   // ---------- Minimap base canvas ----------
-  W.MAP = { x0: -2000, z0: -2700, x1: 2000, z1: 1500, s: 0.4 };
+  W.MAP = { x0: -2300, z0: -2700, x1: 2600, z1: 1500, s: 0.4 };
   W.toMap = (x, z) => [(x - W.MAP.x0) * W.MAP.s, (z - W.MAP.z0) * W.MAP.s];
   function buildMap(bld) {
     const M = W.MAP, w = Math.round((M.x1 - M.x0) * M.s), h = Math.round((M.z1 - M.z0) * M.s);
@@ -812,6 +894,21 @@ G.W = (function () {
     x.fillStyle = '#c9ced6';
     const fr = (r) => { const [a, b] = tm(r.x0, r.z0), [c, d] = tm(r.x1, r.z1); x.fillRect(a, b, c - a, d - b); };
     fr(RUNWAY); fr(PAD); fr(CONNECT);
+    // districts: lakes, paved areas, building outlines, curved roads
+    x.fillStyle = '#1d5a7a';
+    for (const w of W.extra.waters) { const [a, b] = tm(w.x, w.z); x.beginPath(); x.arc(a, b, w.r * M.s, 0, 7); x.fill(); }
+    for (const r of W.extra.paved) { x.fillStyle = r.mapColor || '#8f949c'; fr(r); }
+    for (const r of W.extra.foot) {
+      x.fillStyle = r.mapColor || '#4a4f58';
+      if (r.r !== undefined) { const [a, b] = tm(r.x, r.z); x.beginPath(); x.arc(a, b, r.r * M.s, 0, 7); x.fill(); } else fr(r);
+    }
+    x.lineJoin = 'round'; x.lineCap = 'round';
+    for (const rd of W.extra.roads) {
+      x.strokeStyle = rd.hw > 12 ? '#e8d07a' : '#c9ced6'; x.lineWidth = rd.hw * 2 * M.s; x.beginPath();
+      rd.pts.forEach((p, i) => { const [a, b] = tm(p.x, p.z); i ? x.lineTo(a, b) : x.moveTo(a, b); });
+      if (rd.closed) x.closePath();
+      x.stroke();
+    }
     W.mapCanvas = cv;
   }
 
@@ -833,6 +930,7 @@ G.W = (function () {
     if (cam) for (const c of chunks) c.mesh.visible = cam.position.distanceTo(c.s.center) - c.s.radius < c.far;
     if (dyn.water && dyn.water.normalMap) { dyn.water.normalMap.offset.x = t * 0.004; dyn.water.normalMap.offset.y = t * 0.0025; }
     if (dyn.mountains) { const k = 1 - 0.8 * n; dyn.mountains.color.setRGB(k, k, k * 1.05); }
+    if (G.Districts) G.Districts.update(dt, t, n);
     // traffic signals: recolour once per second
     const sig = dyn.signals;
     const sec = Math.floor(t);

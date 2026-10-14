@@ -56,6 +56,17 @@ G.Nav = (function () {
     link(ringNear(0, -RING), rw0, 'Đường băng sân bay'); link(rw0, rw1, 'Đường băng sân bay');
     const P = W.PAD, pc = addNode(W.CONNECT.x1, 0, true), pm = addNode((P.x0 + P.x1) / 2, (P.z0 + P.z1) / 2, true);
     link(ringNear(RING, 0), pc, 'Đường vào bãi stunt'); link(pc, pm, 'Bãi stunt');
+    // district roads (curves): node chains whose open ends join the nearest earlier node
+    for (const rd of (W.extra ? W.extra.roads : [])) {
+      const start = nodes.length, ids = rd.pts.map((p) => addNode(p.x, p.z, false));
+      for (let k = 0; k + 1 < ids.length; k++) link(ids[k], ids[k + 1], rd.name);
+      if (rd.closed) { link(ids[ids.length - 1], ids[0], rd.name); continue; }
+      for (const end of [ids[0], ids[ids.length - 1]]) {
+        const p = nodes[end]; let best = -1, bd = 45 * 45;
+        for (let k = 0; k < start; k++) { const d = (nodes[k].x - p.x) ** 2 + (nodes[k].z - p.z) ** 2; if (d < bd) { bd = d; best = k; } }
+        if (best >= 0) { link(end, best, rd.name); nodes[end].junction = nodes[best].junction = true; }
+      }
+    }
     N.nodes = nodes; N.edges = edges;
   }
 
@@ -170,12 +181,14 @@ G.Nav = (function () {
       { name: 'Sân vận động', icon: '🏟️', x: mid(9), z: mid(8) },
       { name: 'Công viên Tao Đàn', icon: '🌳', x: mid(2), z: mid(8) },
       { name: 'Công viên Lê Văn Tám', icon: '🌳', x: mid(9), z: mid(3) },
-      { name: 'Sân bay Tân Sơn', icon: '✈️', x: 0, z: R.z1 - 120 },
+      { name: 'Đường băng sân bay', icon: '🛫', x: 0, z: R.z1 - 120 },
       { name: 'Bãi stunt', icon: '🛹', x: (P.x0 + P.x1) / 2, z: 0 },
       { name: 'Bãi biển Vũng Tàu', icon: '🏖️', x: 0, z: W.BEACH_Z },
       { name: 'Bến xe Miền Tây', icon: '🚌', x: -W.BEACH_X + 80, z: W.BEACH_Z },
       { name: 'Khu cảng Đông', icon: '⚓', x: W.BEACH_X - 80, z: W.BEACH_Z },
     ];
+    if (G.Districts) for (const p of G.Districts.places) list.push(p);
+    if (G.GTA && G.GTA.places) for (const p of G.GTA.places()) list.push(p);
     if (G.Events && G.Events.markers) for (const m of G.Events.markers()) list.push({ name: m.def.name, icon: m.def.icon, x: m.x, z: m.z, event: true });
     return list;
   };
@@ -306,8 +319,8 @@ G.Nav = (function () {
       const rx = alongX ? L[j] + (L[j + 1] - L[j]) * t : L[i], rz = alongX ? L[i] : L[j] + (L[j + 1] - L[j]) * t;
       const d = Math.hypot(rx - fromX, rz - fromZ);
       if (d < minD || d > maxD) continue;
-      // block colliders start at the kerb, so people wait right at the road edge
-      const sx = alongX ? rx : rx + side * (HR - 0.8), sz = alongX ? rz + side * (HR - 0.8) : rz;
+      // people wait on the pavement (sidewalks are walkable)
+      const sx = alongX ? rx : rx + side * (HR + 2), sz = alongX ? rz + side * (HR + 2) : rz;
       if (G.W.pointBlocked(sx, sz)) continue;
       const num = 10 + Math.floor(Math.random() * 380);
       return { x: rx, z: rz, sx, sz, face: Math.atan2(rx - sx, rz - sz), name: 'Số ' + num + ' ' + N.streetAt(rx, rz) };

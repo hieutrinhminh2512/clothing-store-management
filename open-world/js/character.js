@@ -170,6 +170,11 @@ G.Character = (function () {
       // sea + world limits
       const sea = G.CFG.SEA_Z - 2;
       if (this.z > sea) { this.z = G.damp(this.z, sea, 12, dt); if (this.z > sea + 1) this.z = sea + 1; if (this.vz > 0) this.vz = 0; this.inSea = true; } else this.inSea = false;
+      // lakes: stay on the shore
+      for (const w of G.W.extra ? G.W.extra.waters : []) {
+        const dx = this.x - w.x, dz = this.z - w.z, d = Math.hypot(dx, dz);
+        if (d < w.r && d > 0.01) { this.x = w.x + dx / d * w.r; this.z = w.z + dz / d * w.r; this.inSea = true; }
+      }
       const Lm = G.CFG.WORLD_LIMIT; this.x = G.clamp(this.x, -Lm, Lm); this.z = Math.max(this.z, -Lm - 200);
       this.landT = Math.max(0, this.landT - dt);
       this.animate(dt);
