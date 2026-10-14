@@ -12,7 +12,7 @@
     canvas#gameCanvas{position:fixed;top:0;left:0;width:100%;height:100%;z-index:1}
 
     /* TOP PROFILE / ACCOUNT BAR */
-    .top-bar{position:fixed;top:0;left:0;width:100%;height:70px;z-index:100;display:flex;justify-content:space-between;
+    .top-nav{position:fixed;top:0;left:0;width:100%;height:70px;z-index:100;display:flex;justify-content:space-between;
       align-items:center;padding:0 30px;background:linear-gradient(180deg,rgba(4,6,14,0.92) 0%,rgba(4,6,14,0) 100%);pointer-events:none}
     .game-logo{font-family:'Orbitron',monospace;font-size:1.8rem;font-weight:900;letter-spacing:4px;
       background:linear-gradient(135deg,#00d4ff,#ff0077,#ffea00);-webkit-background-clip:text;-webkit-text-fill-color:transparent;
@@ -965,7 +965,8 @@ function getGridPos(idx){
 
 // ==================== PHYSICS & ENGINE (IMAGE 3 SPEEDOMETER) ====================
 function updateRacePhysics(dt){
-  if(mode !== 'racing' || physics.finished) return;
+  if(mode !== 'racing' || physics.finished || !raceStart) return; // locked during countdown
+  const k = Math.min(dt * 60, 3); // frame-rate independent (60 FPS baseline)
 
   const fwd = keys['w'] || keys['arrowup'] || keys['ArrowUp'];
   const back = keys['s'] || keys['arrowdown'] || keys['ArrowDown'];
@@ -985,33 +986,33 @@ function updateRacePhysics(dt){
 
   // Nitro Boost
   if(nitroKey && physics.nitro > 0 && fwd){
-    maxSpd *= cData.nitroMult;
-    physics.speed += accelRate * 1.6;
-    physics.nitro = Math.max(0, physics.nitro - 0.7);
+    maxSpd *= cData.nitroMult + (up.nitro - 1) * 0.2;
+    physics.speed += accelRate * 1.6 * k;
+    physics.nitro = Math.max(0, physics.nitro - 0.7 * k);
     if(heroCar.nitroFlame) heroCar.nitroFlame.visible = true;
   } else {
-    physics.nitro = Math.min(100, physics.nitro + 0.16);
+    physics.nitro = Math.min(100, physics.nitro + 0.16 * k);
     if(heroCar.nitroFlame) heroCar.nitroFlame.visible = false;
   }
 
-  if(fwd){ physics.speed += accelRate; }
+  if(fwd){ physics.speed += accelRate * k; }
   else if(back){
-    if(physics.speed > 0.02) physics.speed -= 0.045;
-    else physics.speed -= accelRate * 0.5;
+    if(physics.speed > 0.02) physics.speed -= 0.045 * k;
+    else physics.speed -= accelRate * 0.5 * k;
   }
 
-  physics.speed *= 0.985;
+  physics.speed *= Math.pow(0.985, k);
   physics.speed = Math.max(-0.6, Math.min(maxSpd, physics.speed));
   if(Math.abs(physics.speed) < 0.001 && !fwd && !back) physics.speed = 0;
 
   // Steering
-  const steerRatio = steerRate * Math.min(1, Math.abs(physics.speed) / 0.3);
+  const steerRatio = steerRate * k * Math.min(1, Math.abs(physics.speed) / 0.3);
   const steerDir = physics.speed >= 0 ? 1 : -1;
   if(left) physics.rot += steerRatio * steerDir;
   if(right) physics.rot -= steerRatio * steerDir;
 
-  physics.x += Math.sin(physics.rot) * physics.speed;
-  physics.z += Math.cos(physics.rot) * physics.speed;
+  physics.x += Math.sin(physics.rot) * physics.speed * k;
+  physics.z += Math.cos(physics.rot) * physics.speed * k;
 
   if(heroCar){
     heroCar.position.set(physics.x, 0.5, physics.z);
@@ -1055,10 +1056,11 @@ function checkProgress(){
 }
 
 function updateBots(dt){
-  if(mode !== 'racing') return;
+  if(mode !== 'racing' || !raceStart) return;
+  const k = Math.min(dt * 60, 3);
   bots.forEach(b=>{
     if(b.finished) return;
-    b.t += b.baseSpeed * 0.00092;
+    b.t += b.baseSpeed * 0.00092 * k;
     if(b.t > 1){
       b.t -= 1; b.lap++;
       if(b.lap >= 2){ b.finished = true; b.finishTime = (Date.now() - raceStart) / 1000; }
@@ -1171,7 +1173,7 @@ function showRaceResults(){
   mode = 'finished';
   stopEngineSound();
 
-  const list = [{ name: player.username, finished: physics.finished, finishTime: physics.finishTime, color: '#ff0055', lap: physics.lap }];
+  const list = [{ me: true, name: player.username, finished: physics.finished, finishTime: physics.finishTime, color: '#ff0055', lap: physics.lap }];
   bots.forEach(b=> list.push({ name: b.name, finished: b.finished, finishTime: b.finished?b.finishTime:999, color: '#00d4ff', lap: b.lap }));
 
   list.sort((a,b)=>{
@@ -1181,7 +1183,7 @@ function showRaceResults(){
     return b.lap - a.lap;
   });
 
-  const pRank = list.findIndex(r=> r.name === player.username) + 1;
+  const pRank = list.findIndex(r=> r.me) + 1;
   const rewardGold = pRank === 1 ? 1500 : (pRank === 2 ? 800 : 500);
   player.coins += rewardGold;
   player.wins = (player.wins || 0) + (pRank === 1 ? 1 : 0);
@@ -1381,6 +1383,7 @@ function launchNightCityRace(){
   document.getElementById('hudLayer').style.display = 'block';
 
   physics = { x:0, y:0.5, z:0, rot:0, speed:0, nitro:100, gear:1, lap:0, cp:0, lastT:0, finished:false, finishTime:0 };
+  raceStart = 0;
   initAudio();
   buildNightCityTrackScene();
   spawnRaceVehicles();

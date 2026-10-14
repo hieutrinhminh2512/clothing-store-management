@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Speed Rush: Open City</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27%3E%3Ctext y=%27.9em%27 font-size=%2790%27%3E%F0%9F%8F%8E%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Chakra+Petch:wght@500;600;700&display=swap&subset=vietnamese" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<!-- LOADING -->
+<div id="loading" class="screen active">
+  <div class="logo">SPEED RUSH<span>OPEN CITY</span></div>
+  <div class="load-bar"><div id="loadFill"></div></div>
+  <div id="loadText">Đang dựng thành phố...</div>
+</div>
+
+<!-- TITLE -->
+<div id="title" class="screen">
+  <div class="title-inner">
+    <div class="logo big">SPEED RUSH<span>OPEN CITY</span></div>
+    <div class="tagline">Thế giới mở • Đua đường phố • Truy đuổi • Drift • Stunt</div>
+    <div class="menu">
+      <button class="btn primary" id="btnPlay">▶ VÀO THÀNH PHỐ</button>
+      <button class="btn" id="btnTitleGarage">🔧 GARA SIÊU XE</button>
+      <button class="btn" id="btnTitleSettings">⚙ CÀI ĐẶT</button>
+    </div>
+    <div class="title-stats" id="titleStats"></div>
+    <div class="controls-card">
+      <div><b>W/↑</b> Ga</div><div><b>S/↓</b> Phanh / Lùi</div><div><b>A D/← →</b> Lái</div>
+      <div><b>SPACE</b> Phanh tay (drift)</div><div><b>SHIFT</b> Nitro</div><div><b>C</b> Đổi camera</div>
+      <div><b>E</b> Bắt đầu sự kiện</div><div><b>G</b> Gara</div><div><b>M</b> Bản đồ</div>
+      <div><b>R</b> Đặt lại xe</div><div><b>H</b> Còi</div><div><b>T</b> +1 giờ</div><div><b>ESC</b> Tạm dừng</div>
+      <div class="pad-hint">🎮 Hỗ trợ tay cầm: RT ga • LT phanh • B phanh tay • RB nitro • A sự kiện</div>
+    </div>
+  </div>
+</div>
+
+<!-- HUD -->
+<div id="hud" class="hidden">
+  <div class="hud-tl">
+    <div class="pill cash">💰 <span id="hudCash">$0</span></div>
+    <div class="pill small">⭐ <span id="hudCoins">0/0</span></div>
+    <div class="pill small">🕒 <span id="hudClock">12:00</span></div>
+  </div>
+  <div class="hud-tr">
+    <div id="wanted" class="wanted hidden">
+      <div class="stars" id="wantedStars"></div>
+      <div class="wanted-bar"><div id="escapeFill"></div></div>
+      <div class="wanted-label" id="wantedLabel">ĐANG BỊ TRUY ĐUỔI</div>
+    </div>
+  </div>
+  <div id="mission" class="mission hidden">
+    <div class="m-title" id="mTitle"></div>
+    <div class="m-sub" id="mSub"></div>
+    <div class="m-timer" id="mTimer"></div>
+  </div>
+  <div class="minimap-wrap"><canvas id="minimap" width="220" height="220"></canvas><div class="north">N</div></div>
+  <div class="speedo">
+    <svg viewBox="0 0 200 200" class="rpm-svg">
+      <defs><linearGradient id="rpmGrad" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#00e5ff"/><stop offset="0.7" stop-color="#ff2d95"/><stop offset="1" stop-color="#ffd400"/></linearGradient></defs>
+      <path class="rpm-bg" d="M 40 160 A 80 80 0 1 1 160 160"/>
+      <path class="rpm-fill" id="rpmArc" d="M 40 160 A 80 80 0 1 1 160 160"/>
+    </svg>
+    <div class="speed-num" id="hudSpeed">0</div>
+    <div class="speed-unit" id="hudUnit">KM/H</div>
+    <div class="gear" id="hudGear">N</div>
+    <div class="nitro"><div class="nitro-fill" id="hudNitro"></div><span>NITRO</span></div>
+  </div>
+  <div id="prompt" class="prompt hidden"></div>
+  <div id="popups" class="popups"></div>
+  <div id="countdown" class="countdown"></div>
+  <div class="hint" id="hint">E: sự kiện • G: gara • M: bản đồ • C: camera • R: đặt lại • ESC: menu</div>
+</div>
+
+<!-- TOUCH CONTROLS -->
+<div id="touch" class="touch hidden">
+  <div class="t-left"><div class="tbtn" data-k="left">◀</div><div class="tbtn" data-k="right">▶</div></div>
+  <div class="t-right">
+    <div class="tbtn small" data-k="nitro">N₂O</div><div class="tbtn small" data-k="hand">⛔</div>
+    <div class="tbtn" data-k="brake">▼</div><div class="tbtn gas" data-k="gas">▲</div>
+  </div>
+  <div class="t-top"><div class="tbtn mini" data-press="KeyE">E</div><div class="tbtn mini" data-press="KeyC">CAM</div><div class="tbtn mini" data-press="KeyM">MAP</div><div class="tbtn mini" data-press="KeyG">GARA</div><div class="tbtn mini" data-press="Escape">II</div></div>
+</div>
+
+<!-- RESULTS -->
+<div id="results" class="modal hidden">
+  <div class="card">
+    <div class="r-event" id="rEvent"></div>
+    <div class="r-title" id="rTitle"></div>
+    <div class="r-lines" id="rLines"></div>
+    <div class="r-reward" id="rReward"></div>
+    <button class="btn primary" id="btnResultsOk">TIẾP TỤC</button>
+  </div>
+</div>
+
+<!-- PAUSE -->
+<div id="pause" class="modal hidden">
+  <div class="card wide">
+    <div class="r-title">TẠM DỪNG</div>
+    <div class="menu">
+      <button class="btn primary" id="btnResume">▶ TIẾP TỤC</button>
+      <button class="btn" id="btnAbort">✖ HUỶ SỰ KIỆN</button>
+      <button class="btn" id="btnPauseGarage">🔧 GARA</button>
+      <button class="btn" id="btnPauseMap">🗺 BẢN ĐỒ</button>
+      <button class="btn" id="btnPauseTitle">⌂ MÀN HÌNH CHÍNH</button>
+    </div>
+    <div class="settings" id="settingsBox">
+      <label>Đồ hoạ
+        <select id="setQuality"><option value="low">Thấp</option><option value="medium">Trung bình</option><option value="high">Cao</option><option value="ultra">Siêu cao</option></select>
+      </label>
+      <label>Âm lượng <input type="range" id="setVolume" min="0" max="1" step="0.05"></label>
+      <label>Tốc độ thời gian
+        <select id="setTime"><option value="0">Dừng</option><option value="1">Bình thường</option><option value="3">Nhanh x3</option><option value="10">Rất nhanh x10</option></select>
+      </label>
+      <label>Đơn vị <select id="setUnits"><option value="kmh">km/h</option><option value="mph">mph</option></select></label>
+    </div>
+    <div class="title-stats" id="pauseStats"></div>
+  </div>
+</div>
+
+<!-- SETTINGS (from title) -->
+<div id="settingsModal" class="modal hidden">
+  <div class="card wide">
+    <div class="r-title">CÀI ĐẶT</div>
+    <div id="settingsSlot"></div>
+    <button class="btn primary" id="btnSettingsClose">XONG</button>
+  </div>
+</div>
+
+<!-- GARAGE -->
+<div id="garage" class="hidden">
+  <div class="g-panel">
+    <div class="g-brand" id="gBrand"></div>
+    <div class="g-name" id="gName"></div>
+    <div class="g-desc" id="gDesc"></div>
+    <div class="g-stats" id="gStats"></div>
+    <div class="g-sec">MÀU SƠN</div>
+    <div class="g-colors" id="gColors"></div>
+    <div class="g-sec">NÂNG CẤP</div>
+    <div class="g-upgrades" id="gUpgrades"></div>
+    <button class="btn primary full" id="gAction"></button>
+  </div>
+  <div class="g-top"><div class="pill cash">💰 <span id="gCash"></span></div><button class="btn" id="gClose">✖ ĐÓNG GARA</button></div>
+  <div class="g-strip" id="gStrip"></div>
+</div>
+
+<!-- BIG MAP -->
+<div id="bigmap" class="hidden">
+  <canvas id="bigmapCanvas"></canvas>
+  <div class="bm-legend">
+    <div class="bm-title">BẢN ĐỒ THÀNH PHỐ</div>
+    <div>🟢 Bạn &nbsp; 🎯 Điểm đến (click để đặt GPS) &nbsp; ⭐ Đồng xu</div>
+    <div id="bmEvents"></div>
+    <div class="bm-close">M / ESC để đóng • Chuột phải để xoá GPS</div>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script src="../three.min.js"></script>
+<script>if (typeof THREE === 'undefined') document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"><\/script>');</script>
+<script src="js/core.js"></script>
+<script src="js/textures.js"></script>
+<script src="js/render.js"></script>
+<script src="js/world.js"></script>
+<script src="js/cars.js"></script>
+<script src="js/vehicle.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/traffic.js"></script>
+<script src="js/events.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

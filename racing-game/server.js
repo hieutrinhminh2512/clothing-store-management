@@ -10,6 +10,9 @@ const io = new Server(server, {
 });
 
 app.use(express.static(path.join(__dirname, 'public')));
+// Open-world single-player game (open-world/ at the repo root) + shared three.js build
+app.use('/open-world', express.static(path.join(__dirname, '..', 'open-world')));
+app.get('/three.min.js', (req, res) => res.sendFile(path.join(__dirname, '..', 'three.min.js')));
 
 // ============= Room Management =============
 const rooms = new Map();
@@ -101,7 +104,7 @@ io.on('connection', (socket) => {
   socket.on('start-game', () => {
     if (!currentRoom) return;
     const room = rooms.get(currentRoom);
-    if (!room || room.host !== socket.id) return;
+    if (!room || room.host !== socket.id || room.state !== 'lobby') return; // no double start
 
     room.state = 'countdown';
     room.finishOrder = [];
@@ -118,14 +121,17 @@ io.on('connection', (socket) => {
 
     // Countdown 3-2-1-GO
     let count = 3;
+    const roomCode = currentRoom;
     const interval = setInterval(() => {
-      io.to(currentRoom).emit('countdown', { count });
+      // Room emptied during countdown: stop instead of ticking forever
+      if (!rooms.has(roomCode)) return clearInterval(interval);
+      io.to(roomCode).emit('countdown', { count });
       count--;
       if (count < 0) {
         clearInterval(interval);
         room.state = 'racing';
         room.raceStartTime = Date.now();
-        io.to(currentRoom).emit('race-start');
+        io.to(roomCode).emit('race-start');
       }
     }, 1000);
   });
@@ -213,6 +219,11 @@ io.on('connection', (socket) => {
         players: Array.from(room.players.values()),
         newHost: room.host,
       });
+      // A racer quit mid-race: finish the race if everyone remaining is done
+      if (room.state === 'racing' && room.finishOrder.length >= room.players.size) {
+        room.state = 'finished';
+        io.to(currentRoom).emit('race-complete', { results: room.finishOrder });
+      }
     }
   });
 });

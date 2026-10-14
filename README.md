@@ -1,3 +1,19 @@
+# 🌆 MỚI: Speed Rush — Open City (thế giới mở)
+
+Bản thế giới mở nằm trong thư mục `open-world/`. **Mở `open-world/index.html`** bằng trình duyệt (hoặc chạy server bên dưới rồi vào `http://localhost:3000/open-world/`).
+
+- **Bản đồ ~5×5 km**: thành phố 12×12 block (trung tâm cao ốc, khu văn phòng, khu dân cư, công viên, quảng trường đài phun nước, sân vận động), đường cao tốc vành đai, đường băng sân bay 1.7 km, bãi stunt với mega ramp, bãi biển & biển, đồi núi xa.
+- **8 siêu xe** (hatchback, muscle, sedan, SUV off-road, GT, 2 hypercar, xe F1) — model 3D có hốc bánh, sơn clear-coat phản chiếu, đèn, cánh gió; nâng cấp động cơ/khung gầm/nitro, đổi màu.
+- **Vật lý lái**: drift bằng phanh tay, nitro, nhảy dốc & bay, va chạm tường/xe, mặt đường khác nhau (nhựa/cỏ/cát).
+- **Giao thông AI** chạy đúng làn, rẽ ở giao lộ, dừng đèn đỏ. **Cảnh sát truy đuổi** 5 cấp sao (cắt đuôi = thưởng, bị bắt = nộp phạt).
+- **8 sự kiện**: 2 đua đường phố, đua vòng cao tốc (AI), bẫy tốc độ, drift zone, time attack bờ biển, nhảy xa, truy nã. **108 đồng xu** sưu tầm.
+- **Đồ hoạ**: HDR + bloom + ACES, ngày/đêm động (bình minh, hoàng hôn, sao, mây), đèn đường, cửa sổ sáng đèn ban đêm, biển gợn sóng, khói lốp, vệt phanh, tia lửa. 4 mức đồ hoạ (tự chọn theo GPU).
+- Âm thanh tổng hợp (động cơ theo vòng tua, lốp rít, gió, còi hú), minimap xoay + bản đồ lớn có GPS, hỗ trợ tay cầm & màn hình cảm ứng, lưu tiến độ tự động.
+
+**Phím**: W/S ga-phanh • A/D lái • Space phanh tay • Shift nitro • E sự kiện • G gara • M bản đồ • C camera • R đặt lại xe • H còi • T +1 giờ • Esc menu
+
+---
+
 # Speed Rush 3D - Cyber Highway Racing Game 🏎️💨
 
 Game đua xe 3D đồ họa cao cấp xây dựng bằng Three.js, phong cách đường cao tốc đêm mưa (Cyber City / Need for Speed / Asphalt), hệ thống Showroom 3D, độ xe (Tuning), tài khoản và tiền tệ người chơi, cùng chế độ Multiplayer qua Socket.io.

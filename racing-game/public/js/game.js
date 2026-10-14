@@ -1003,6 +1003,8 @@ function createCarModel(color) {
 // ============= PHYSICS =============
 function updatePhysics(delta) {
   if (!state.racing || state.finished) return;
+  // Normalise to 60 FPS so the car is equally fast on 30/60/144 Hz screens (multiplayer fairness)
+  const k = Math.min(delta * 60, 3);
 
   const fwd = keys['w'] || keys['arrowup'] || keys['ArrowUp'];
   const back = keys['s'] || keys['arrowdown'] || keys['ArrowDown'];
@@ -1011,12 +1013,12 @@ function updatePhysics(delta) {
 
   // Acceleration
   if (fwd) {
-    physics.speed += CONFIG.ACCELERATION;
+    physics.speed += CONFIG.ACCELERATION * k;
   } else if (back) {
     if (physics.speed > 0.01) {
-      physics.speed -= CONFIG.BRAKE_FORCE;
+      physics.speed -= CONFIG.BRAKE_FORCE * k;
     } else {
-      physics.speed -= CONFIG.ACCELERATION * 0.5; // reverse
+      physics.speed -= CONFIG.ACCELERATION * 0.5 * k; // reverse
     }
   }
 
@@ -1024,7 +1026,7 @@ function updatePhysics(delta) {
   const onTrack = isOnTrack(physics.x, physics.z);
 
   // Friction
-  physics.speed *= onTrack ? CONFIG.FRICTION : CONFIG.OFF_TRACK_FRICTION;
+  physics.speed *= Math.pow(onTrack ? CONFIG.FRICTION : CONFIG.OFF_TRACK_FRICTION, k);
 
   // Speed limits
   const maxSpd = onTrack ? CONFIG.MAX_SPEED : CONFIG.MAX_SPEED * 0.5;
@@ -1036,7 +1038,7 @@ function updatePhysics(delta) {
   }
 
   // Steering (speed-dependent)
-  const steerAmount = CONFIG.STEERING * Math.min(1.0, Math.abs(physics.speed) / 0.3);
+  const steerAmount = CONFIG.STEERING * k * Math.min(1.0, Math.abs(physics.speed) / 0.3);
   const steerDir = physics.speed >= 0 ? 1 : -1;
   if (left) {
     physics.rotation += steerAmount * steerDir;
@@ -1046,8 +1048,8 @@ function updatePhysics(delta) {
   }
 
   // Move
-  physics.x += Math.sin(physics.rotation) * physics.speed;
-  physics.z += Math.cos(physics.rotation) * physics.speed;
+  physics.x += Math.sin(physics.rotation) * physics.speed * k;
+  physics.z += Math.cos(physics.rotation) * physics.speed * k;
 
   // Boundary constraint (keep on or near track)
   constrainToTrack();
