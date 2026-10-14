@@ -4,11 +4,13 @@
 // ================================================================
 'use strict';
 
+// minPR: dynamic-resolution floor; bloomLv/bloomDiv: bloom mip count and first-level divisor;
+// shadowR: half-size of the shadow frustum; oct: sky fbm octaves; envStep: hours between reflection rebuilds
 G.QUALITY = {
-  low:    { pixelRatio: 0.75, shadows: 0,    bloom: false, msaa: 0, traffic: 14, fogFar: 1300 },
-  medium: { pixelRatio: 1.0,  shadows: 1024, bloom: true,  msaa: 0, traffic: 24, fogFar: 1900 },
-  high:   { pixelRatio: 1.25, shadows: 2048, bloom: true,  msaa: 4, traffic: 34, fogFar: 2500 },
-  ultra:  { pixelRatio: 2.0,  shadows: 4096, bloom: true,  msaa: 4, traffic: 44, fogFar: 3000 },
+  low:    { pixelRatio: 0.75, minPR: 0.5,  shadows: 0,    bloom: false, msaa: 0, traffic: 14, fogFar: 1300, oct: 3, envStep: 1,    softShadow: false, shadowR: 90 },
+  medium: { pixelRatio: 1.0,  minPR: 0.6,  shadows: 1024, bloom: true,  msaa: 0, traffic: 24, fogFar: 1900, oct: 3, envStep: 0.5,  softShadow: false, shadowR: 95, bloomLv: 3, bloomDiv: 2 },
+  high:   { pixelRatio: 1.25, minPR: 0.85, shadows: 2048, bloom: true,  msaa: 4, traffic: 34, fogFar: 2500, oct: 5, envStep: 0.25, softShadow: true,  shadowR: 130, bloomLv: 4, bloomDiv: 2 },
+  ultra:  { pixelRatio: 2.0,  minPR: 1.0,  shadows: 4096, bloom: true,  msaa: 4, traffic: 44, fogFar: 3000, oct: 5, envStep: 0.25, softShadow: true,  shadowR: 130, bloomLv: 4, bloomDiv: 2 },
 };
 
 G.R = (function () {
@@ -25,6 +27,9 @@ G.R = (function () {
   R.night = 0;            // 0 = full day, 1 = full night
   R.sunDir = new THREE.Vector3(0.4, 0.8, 0.3).normalize();
   R.shake = 0;
+  R.dynRes = true;        // adapt pixel ratio to the measured frame time
+  R.pixelRatio = 1;       // current (dynamic) pixel ratio
+  const Q = () => G.QUALITY[G.save.settings.quality] || G.QUALITY.high;
 
   // ---------------- Sky shader ----------------
   const SKY_VS = `
@@ -43,26 +48,26 @@ G.R = (function () {
     float h31(vec3 p){ p = fract(p*0.3183099+.1); p *= 17.0; return fract(p.x*p.y*p.z*(p.x+p.y+p.z)); }
     float vnoise(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.-2.*f);
       return mix(mix(h21(i),h21(i+vec2(1,0)),f.x), mix(h21(i+vec2(0,1)),h21(i+vec2(1,1)),f.x), f.y); }
-    float fbm(vec2 p){ float v=0., a=.5; for(int i=0;i<5;i++){ v+=a*vnoise(p); p*=2.03; a*=.5; } return v; }
+    float fbm(vec2 p){ float v=0., a=.5; for(int i=0;i<OCT;i++){ v+=a*vnoise(p); p*=2.03; a*=.5; } return v; }
     void main(){
       vec3 d = normalize(vDir);
       float y = d.y;
       vec3 col = mix(uHorizon, uTop, pow(clamp(y,0.,1.), 0.45));
       col = mix(col, uGround, smoothstep(0.0, -0.08, y));
       // city light pollution near the horizon at night
-      col += uGlow * exp(-max(y,0.)*9.0) * uNight;
+      col += uGlow * exp(-max(y,0.)*7.0) * uNight;
       // sun
       float s = max(dot(d, uSunDir), 0.0);
       col += uSunCol * (pow(s, 900.0) * 40.0 + pow(s, 12.0) * 0.35 + pow(s, 3.0) * 0.12);
       // moon (opposite the sun)
       float m = max(dot(d, -uSunDir), 0.0);
-      col += vec3(0.75,0.82,1.0) * (smoothstep(0.9994, 0.9997, m) * 3.0 + pow(m, 60.0)*0.08) * uNight;
+      col += vec3(0.75,0.82,1.0) * (smoothstep(0.9994, 0.9997, m) * 1.6 + pow(m, 60.0)*0.06) * uNight;
       // stars
       if (y > 0.0) {
         vec3 sp = floor(d * 420.0);
         float st = h31(sp);
         float tw = 0.6 + 0.4 * sin(uTime * 3.0 + st * 80.0);
-        col += vec3(smoothstep(0.9975, 1.0, st)) * tw * uNight * 2.5 * smoothstep(0.0, 0.25, y);
+        col += vec3(smoothstep(0.9975, 1.0, st)) * tw * uNight * 1.4 * smoothstep(0.0, 0.25, y);
       }
       // clouds: a plane projected onto the dome
       if (y > 0.01) {
@@ -70,7 +75,7 @@ G.R = (function () {
         float c = fbm(uv);
         c = smoothstep(0.45 - uCloud * 0.25, 0.85, c) * smoothstep(0.0, 0.25, y);
         vec3 cloudLit = mix(uHorizon * 1.15, vec3(1.0), 0.45) * (1.0 - uNight * 0.85) + uSunCol * pow(s, 4.0) * 0.6;
-        cloudLit += uGlow * uNight * 0.6;
+        cloudLit += uGlow * uNight * 0.45;
         col = mix(col, cloudLit, c * 0.85);
       }
       gl_FragColor = vec4(col, 1.0);
@@ -102,6 +107,7 @@ G.R = (function () {
   const COMPOSITE_FS = `
     uniform sampler2D tScene, tB0, tB1, tB2, tB3;
     uniform float uBloom, uExposure, uVignette, uSpeed, uTime, uFlash;
+    uniform vec4 uBW;
     varying vec2 vUv;
     vec3 RRTAndODTFit(vec3 v){ vec3 a = v*(v+0.0245786)-0.000090537; vec3 b = v*(0.983729*v+0.4329510)+0.238081; return a/b; }
     vec3 aces(vec3 color){
@@ -120,7 +126,9 @@ G.R = (function () {
         for (int i = 1; i < 6; i++) { acc += texture2D(tScene, uv - fromC * float(i) * 0.006 * uSpeed).rgb; }
         c = mix(c, acc / 6.0, smoothstep(0.15, 0.6, length(fromC)));
       }
-      vec3 b = texture2D(tB0, uv).rgb * 0.9 + texture2D(tB1, uv).rgb * 0.8 + texture2D(tB2, uv).rgb * 0.7 + texture2D(tB3, uv).rgb * 0.7;
+      // tight levels dominate: crisp halos instead of big glowing blobs
+      vec3 b = texture2D(tB0, uv).rgb * uBW.x + texture2D(tB1, uv).rgb * uBW.y + texture2D(tB2, uv).rgb * uBW.z;
+      if (uBW.w > 0.0) b += texture2D(tB3, uv).rgb * uBW.w;
       c += b * uBloom;
       c = aces(c);
       // vignette + flash (crashes / busted)
@@ -144,14 +152,15 @@ G.R = (function () {
 
   function buildPost() {
     disposePost();
-    const q = G.QUALITY[G.save.settings.quality];
+    const q = Q();
     if (!q.bloom) { post = null; return; }
     const size = renderer.getDrawingBufferSize(new THREE.Vector2());
     const w = Math.max(2, size.x), h = Math.max(2, size.y);
     post = { scene: makeRT(w, h, q.msaa), levels: [] };
     post.scene.depthBuffer = true;
-    let lw = w >> 1, lh = h >> 1;
-    for (let i = 0; i < 4; i++) {
+    const nl = q.bloomLv || 4;
+    let lw = Math.floor(w / (q.bloomDiv || 2)), lh = Math.floor(h / (q.bloomDiv || 2));
+    for (let i = 0; i < nl; i++) {
       const o = { type: R.hdrType, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, depthBuffer: false };
       post.levels.push({ a: new THREE.WebGLRenderTarget(Math.max(2, lw), Math.max(2, lh), o), b: new THREE.WebGLRenderTarget(Math.max(2, lw), Math.max(2, lh), o), w: Math.max(2, lw), h: Math.max(2, lh) });
       lw >>= 1; lh >>= 1;
@@ -161,7 +170,8 @@ G.R = (function () {
     post.copy = makeMat(COPY_FS, { tSrc: { value: null } });
     post.comp = makeMat(COMPOSITE_FS, {
       tScene: { value: null }, tB0: { value: null }, tB1: { value: null }, tB2: { value: null }, tB3: { value: null },
-      uBloom: { value: 0.6 }, uExposure: { value: 1 }, uVignette: { value: 0.35 }, uSpeed: { value: 0 }, uTime: { value: 0 }, uFlash: { value: 0 },
+      uBloom: { value: 0.6 }, uExposure: { value: 1 }, uVignette: { value: 0.18 },
+      uBW: { value: nl > 3 ? new THREE.Vector4(1.0, 0.7, 0.42, 0.25) : new THREE.Vector4(1.05, 0.75, 0.5, 0) }, uSpeed: { value: 0 }, uTime: { value: 0 }, uFlash: { value: 0 },
     });
   }
   function disposePost() {
@@ -198,14 +208,16 @@ G.R = (function () {
       vertexShader: SKY_VS, fragmentShader: SKY_FS, side: THREE.BackSide, depthWrite: false, fog: false,
       uniforms: {
         uTop: { value: new THREE.Color() }, uHorizon: { value: new THREE.Color() }, uGround: { value: new THREE.Color() },
-        uSunCol: { value: new THREE.Color() }, uSunDir: { value: R.sunDir }, uGlow: { value: G.col(0x5a3018) },
+        uSunCol: { value: new THREE.Color() }, uSunDir: { value: R.sunDir }, uGlow: { value: G.col(0x2e2c38) },
         uNight: { value: 0 }, uTime: { value: 0 }, uCloud: { value: 0.35 },
       },
+      defines: { OCT: 5 },
     });
     const skyGeo = new THREE.SphereGeometry(4000, 48, 24);
     skyMesh = new THREE.Mesh(skyGeo, skyMat);
     skyMesh.frustumCulled = false;
-    skyMesh.renderOrder = -10;
+    // drawn last among opaques: the early depth test skips every pixel covered by the city
+    skyMesh.renderOrder = 100;
     scene.add(skyMesh);
     envScene = new THREE.Scene();
     const envSky = new THREE.Mesh(new THREE.SphereGeometry(100, 32, 16), skyMat);
@@ -239,15 +251,23 @@ G.R = (function () {
   };
 
   R.applyQuality = function () {
-    const q = G.QUALITY[G.save.settings.quality] || G.QUALITY.high;
-    renderer.setPixelRatio(Math.min(devicePixelRatio || 1, q.pixelRatio));
+    const q = Q();
+    R.pixelRatio = maxPR();
+    dyn.acc = dyn.n = dyn.up = 0; dyn.skip = false;
+    renderer.setPixelRatio(R.pixelRatio);
     renderer.setSize(innerWidth, innerHeight);
     renderer.shadowMap.enabled = q.shadows > 0;
+    renderer.shadowMap.type = q.softShadow ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
+    renderer.shadowMap.autoUpdate = false; // refreshed from R.render (every frame, or every 2nd when degraded)
+    renderer.shadowMap.needsUpdate = true;
     sun.castShadow = q.shadows > 0;
     if (q.shadows > 0) {
       if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; }
       sun.shadow.mapSize.set(q.shadows, q.shadows);
+      const sc = sun.shadow.camera; sc.left = sc.bottom = -q.shadowR; sc.right = sc.top = q.shadowR; sc.updateProjectionMatrix();
     }
+    if (skyMat.defines.OCT !== (q.oct || 5)) { skyMat.defines.OCT = q.oct || 5; skyMat.needsUpdate = true; }
+    lastEnvKey = '';
     // bloom path renders linear HDR into a float target and tone-maps in the composite shader
     renderer.toneMapping = q.bloom ? THREE.NoToneMapping : THREE.ACESFilmicToneMapping;
     renderer.outputEncoding = q.bloom ? THREE.LinearEncoding : THREE.sRGBEncoding;
@@ -263,12 +283,44 @@ G.R = (function () {
     buildPost();
   };
 
+  // ---------------- Dynamic resolution ----------------
+  // Every ~1 s the average frame time is checked: slow -> lower the pixel ratio (down to q.minPR),
+  // steady near vsync for 3 s -> raise it again. The 18.5-25 ms dead band avoids ping-ponging.
+  const dyn = { last: 0, acc: 0, n: 0, up: 0, skip: false, frame: 0 };
+  function maxPR() { return Math.min(devicePixelRatio || 1, Q().pixelRatio); }
+  function setPR(pr) {
+    pr = Math.round(pr * 100) / 100;
+    if (Math.abs(pr - R.pixelRatio) < 0.02) return;
+    R.pixelRatio = pr;
+    renderer.setPixelRatio(pr);
+    renderer.setSize(innerWidth, innerHeight);
+    buildPost();
+  }
+  function dynUpdate() {
+    const now = performance.now(), ms = now - dyn.last;
+    dyn.last = now;
+    if (!R.dynRes || ms <= 0 || ms > 250 || document.hidden) return; // hitches / background tabs
+    dyn.acc += ms; dyn.n++;
+    if (dyn.acc < 1000) return;
+    const avg = dyn.acc / dyn.n, q = Q(), hi = maxPR(), lo = Math.min(hi, q.minPR || hi);
+    dyn.acc = dyn.n = 0;
+    if (avg > 25) {
+      dyn.up = 0;
+      if (R.pixelRatio > lo + 0.01) setPR(Math.max(lo, R.pixelRatio - (avg > 40 ? 0.15 : 0.08)));
+      else if (q.shadows && !q.softShadow) dyn.skip = true; // already at the floor: refresh shadows every 2nd frame
+    } else if (avg < 18.5) {
+      if (dyn.skip) { dyn.skip = false; return; }
+      if (++dyn.up >= 3 && R.pixelRatio < hi - 0.01) { dyn.up = 0; setPR(Math.min(hi, R.pixelRatio + 0.05)); }
+    } else dyn.up = 0;
+  }
+
   // ---------------- Day / night ----------------
   // key colours by sun elevation (sin of elevation): night, dusk, golden, day
   const KEYS = [
-    { e: -0.30, top: 0x02040b, hor: 0x0a1226, gnd: 0x05070c, sun: 0x000000, light: 0x7d9cff, li: 0.32, hemi: 0.22, exp: 1.25, bloom: 1.0, thr: 0.9 },
-    { e: -0.08, top: 0x141d40, hor: 0x8a4a5e, gnd: 0x1a1418, sun: 0xff5a2a, light: 0x8a8cff, li: 0.20, hemi: 0.28, exp: 1.15, bloom: 0.9, thr: 0.95 },
-    { e: 0.06, top: 0x3b5c9a, hor: 0xf3a362, gnd: 0x4d3a2a, sun: 0xffa050, light: 0xffb27a, li: 1.6, hemi: 0.45, exp: 1.0, bloom: 0.55, thr: 1.6 },
+    // night: deep blue sky, cool moonlight fill, gentle bloom that only catches real light sources
+    { e: -0.30, top: 0x0a1736, hor: 0x1d2d4e, gnd: 0x0a0e16, sun: 0x000000, light: 0x9db4e6, li: 0.48, hemi: 0.36, exp: 1.08, bloom: 0.42, thr: 1.7 },
+    { e: -0.08, top: 0x1c2a52, hor: 0x7a6070, gnd: 0x16151b, sun: 0xd8683a, light: 0xa4acd8, li: 0.30, hemi: 0.34, exp: 1.06, bloom: 0.42, thr: 1.6 },
+    { e: 0.06, top: 0x3f5f98, hor: 0xe2ad80, gnd: 0x4d3c2e, sun: 0xf2a668, light: 0xffc496, li: 1.6, hemi: 0.46, exp: 1.0, bloom: 0.38, thr: 1.9 },
     { e: 0.30, top: 0x2d6bc4, hor: 0xb4d2ee, gnd: 0x5a5040, sun: 0xfff2dc, light: 0xfff4e6, li: 2.6, hemi: 0.62, exp: 0.9, bloom: 0.3, thr: 2.4 },
   ];
   const tmpA = new THREE.Color(), tmpB = new THREE.Color();
@@ -311,13 +363,13 @@ G.R = (function () {
       sun.target.position.set(focus.x, 0, focus.z);
       sun.position.set(focus.x + lightDir.x * 400, Math.max(40, lightDir.y * 400), focus.z + lightDir.z * 400);
       // snap shadow camera to texels to stop shimmering
-      const step = 260 / (sun.shadow.mapSize.x || 1024);
+      const step = sun.shadow.camera.right * 2 / (sun.shadow.mapSize.x || 1024);
       sun.target.position.x = Math.round(sun.target.position.x / step) * step;
       sun.target.position.z = Math.round(sun.target.position.z / step) * step;
     }
 
     // regenerate reflections when the sky noticeably changes
-    const key = (Math.round(hour * 4) / 4).toFixed(2);
+    const es = Q().envStep || 0.25, key = (Math.round(hour / es) * es).toFixed(2);
     if (key !== lastEnvKey) {
       lastEnvKey = key;
       const old = envRT;
@@ -332,6 +384,9 @@ G.R = (function () {
     skyMat.uniforms.uTime.value = time;
     skyMesh.position.copy(camera.position);
     const k = R.keys || { exp: 1, bloom: 0.5, thr: 1.2 };
+    dynUpdate();
+    dyn.frame++;
+    if (renderer.shadowMap.enabled && (!dyn.skip || dyn.frame % 2 === 0)) renderer.shadowMap.needsUpdate = true;
     if (!post) {
       renderer.toneMappingExposure = k.exp;
       renderer.setRenderTarget(null);
@@ -352,8 +407,9 @@ G.R = (function () {
     }
     const u = post.comp.uniforms;
     u.tScene.value = post.scene.texture;
-    u.tB0.value = post.levels[0].a.texture; u.tB1.value = post.levels[1].a.texture;
-    u.tB2.value = post.levels[2].a.texture; u.tB3.value = post.levels[3].a.texture;
+    const lv = post.levels, last = lv.length - 1;
+    u.tB0.value = lv[0].a.texture; u.tB1.value = lv[Math.min(1, last)].a.texture;
+    u.tB2.value = lv[Math.min(2, last)].a.texture; u.tB3.value = lv[Math.min(3, last)].a.texture;
     u.uBloom.value = k.bloom;
     u.uExposure.value = k.exp;
     u.uSpeed.value = speedFx || 0;

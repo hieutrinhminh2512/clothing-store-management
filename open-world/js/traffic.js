@@ -132,12 +132,20 @@ G.Traffic = (function () {
     if (police) scene.add(mesh);
     const b = police ? G.POLICE_SPEC.body : G.CarModels.trafficTypes()[type].b;
     const t = { mesh, inst, police: !!police, isTraffic: true, x: 0, z: 0, y: 0, heading: 0, vx: 0, vz: 0, yaw: 0, cruise: 12 + Math.random() * 6, speed: 0, wrecked: 0,
-      radius: (b.L + b.W) / 4 + 0.1, mass: b.style === 'van' ? 2600 : 1400, L: b.L, wheelR: b.wheelR, spin: 0 };
+      radius: (b.L + b.W) / 4 + 0.1, mass: b.style === 'van' ? 2600 : 1400, L: b.L, W: b.W, wheelR: b.wheelR, spin: 0,
+      k, type, style: b.style, hex: b.style === 'taxi' ? 0xf7c600 : PAL[k % PAL.length] };
     t.onHit = (other, imp) => { if (imp > 2.5 && !t.wrecked) { t.wrecked = 6 + Math.random() * 3; t.yaw = (Math.random() - 0.5) * imp * 0.3; if (T.onPlayerHit && other.isPlayer) T.onPlayerHit(t, imp); } };
     const seg = randomSegment(0, 0, 0, 99999);
     place(t, seg);
     T.cars.push(t);
     return t;
+  };
+  // take a car out of traffic (car-jacking); respawn a replacement of the same type elsewhere
+  T.remove = function (t, respawn) {
+    const i = T.cars.indexOf(t); if (i < 0) return;
+    T.cars.splice(i, 1);
+    if (t.inst) { G.CarModels.TrafficInst.free(t.inst); t.inst = null; } else scene.remove(t.mesh);
+    if (respawn) setTimeout(() => { const n = T.add(t.k, t.police); if (n && G.Game && G.Game.player) { const P = G.Game.player, seg = randomSegment(G.clamp(P.x, -C.HALF, C.HALF), G.clamp(P.z, -C.HALF, C.HALF), 200, 520); if (seg) place(n, seg); } }, 4000);
   };
   T.setCount = function (n) {
     while (T.cars.filter((c) => !c.police).length > n) { const i = T.cars.findIndex((c) => !c.police); G.CarModels.TrafficInst.free(T.cars[i].inst); T.cars.splice(i, 1); }

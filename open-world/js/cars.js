@@ -72,7 +72,7 @@ G.CarModels = (function () {
       rimDark: new THREE.MeshStandardMaterial({ color: G.col(0x2a2c30), metalness: 0.9, roughness: 0.3 }),
       tire: new THREE.MeshStandardMaterial({ color: G.col(0x161616), roughness: 0.92, metalness: 0 }),
       caliper: new THREE.MeshStandardMaterial({ color: G.col(0xe01a1a), roughness: 0.35, metalness: 0.3 }),
-      head: new THREE.MeshBasicMaterial({ color: new THREE.Color(5, 5, 4.6) }),
+      head: new THREE.MeshBasicMaterial({ color: new THREE.Color(2.4, 2.35, 2.15) }),
       plate: new THREE.MeshStandardMaterial({ color: G.col(0xf0f0f0), roughness: 0.5 }),
       interior: new THREE.MeshStandardMaterial({ color: G.col(0x1a1a1c), roughness: 0.8 }),
       blob: new THREE.MeshBasicMaterial({ map: G.TEX.blob(), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -8, polygonOffsetUnits: -16 }),
@@ -153,7 +153,7 @@ G.CarModels = (function () {
     const m = mats(), b = spec.body;
     const g = new THREE.Group();
     const paint = M.paint(colorHex);
-    const tail = new THREE.MeshBasicMaterial({ color: new THREE.Color(1.6, 0.04, 0.03) });
+    const tail = new THREE.MeshBasicMaterial({ color: new THREE.Color(1.3, 0.04, 0.03) });
     const ud = { wheels: [], paint, tail, flames: [], body: b };
     g.userData = ud;
     const W = b.W;
@@ -217,7 +217,7 @@ G.CarModels = (function () {
       // livery: white doors + light bar
       [-1, 1].forEach((sd) => box(0.02, 0.36, 1.9, m.white, sd * (W / 2 + 0.01), b.clr + 0.48, 0.1, g));
       box(cabW * 0.7, 0.1, 0.32, m.black, 0, b.roof + 0.07, (b.rf + b.rr) / 2, g);
-      const red = new THREE.MeshBasicMaterial({ color: new THREE.Color(6, 0.1, 0.1) }), blue = new THREE.MeshBasicMaterial({ color: new THREE.Color(0.1, 0.5, 8) });
+      const red = new THREE.MeshBasicMaterial({ color: new THREE.Color(3.5, 0.1, 0.1) }), blue = new THREE.MeshBasicMaterial({ color: new THREE.Color(0.1, 0.4, 4.5) });
       box(cabW * 0.3, 0.09, 0.26, red, -cabW * 0.18, b.roof + 0.15, (b.rf + b.rr) / 2, g);
       box(cabW * 0.3, 0.09, 0.26, blue, cabW * 0.18, b.roof + 0.15, (b.rf + b.rr) / 2, g);
       ud.siren = { red, blue };
@@ -369,11 +369,11 @@ G.CarModels = (function () {
       T.forEach((t) => {
         const b = t.b, parts = [colored(t.bodyGeo, 1, 1, 1), colored(t.cabGeo, 0.035, 0.045, 0.06)];
         for (const z of [b.wb / 2, -b.wb / 2]) for (const sd of [-1, 1]) parts.push(colored(t.wheelGeo, 0.03, 0.03, 0.03, m4.makeTranslation(sd * (b.W / 2 - 0.13), b.wheelR, z)));
-        if (b.style === 'taxi') parts.push(colored(new THREE.BoxGeometry(0.5, 0.18, 0.2), 6, 5, 2, m4.makeTranslation(0, b.roof + 0.1, (b.rf + b.rr) / 2)));
+        if (b.style === 'taxi') parts.push(colored(new THREE.BoxGeometry(0.5, 0.18, 0.2), 2.6, 2.2, 0.9, m4.makeTranslation(0, b.roof + 0.1, (b.rf + b.rr) / 2)));
         const body = new THREE.InstancedMesh(mergeGeometries(parts), bodyMat, perType);
         const lights = new THREE.InstancedMesh(mergeGeometries([
-          colored(t.lightGeo, 5, 5, 4.6, m4.makeTranslation(0, b.nose - 0.1, b.L / 2 - 0.08)),
-          colored(t.lightGeo, 2.2, 0.05, 0.03, m4.makeTranslation(0, b.tail - 0.12, -b.L / 2 + 0.06)),
+          colored(t.lightGeo, 2.4, 2.35, 2.15, m4.makeTranslation(0, b.nose - 0.1, b.L / 2 - 0.08)),
+          colored(t.lightGeo, 1.5, 0.05, 0.03, m4.makeTranslation(0, b.tail - 0.12, -b.L / 2 + 0.06)),
         ]), lightMat, perType);
         const bg = new THREE.PlaneGeometry(b.W * 1.3, b.L * 1.15); bg.rotateX(-Math.PI / 2); bg.translate(0, 0.04, 0);
         const blob = new THREE.InstancedMesh(bg, mats().blob, perType);
@@ -418,7 +418,7 @@ G.CarModels = (function () {
       const w = new THREE.Mesh(t.wheelGeo, m.tire); w.position.set(sd * (b.W / 2 - 0.13), b.wheelR, z); g.add(w); wheels.push(w);
     }
     const hl = new THREE.Mesh(t.lightGeo, m.head); hl.position.set(0, b.nose - 0.1, b.L / 2 - 0.08); g.add(hl);
-    const tl = new THREE.Mesh(t.lightGeo, M.trafficTail || (M.trafficTail = new THREE.MeshBasicMaterial({ color: new THREE.Color(2.2, 0.05, 0.03) })));
+    const tl = new THREE.Mesh(t.lightGeo, M.trafficTail || (M.trafficTail = new THREE.MeshBasicMaterial({ color: new THREE.Color(1.5, 0.05, 0.03) })));
     tl.position.set(0, b.tail - 0.12, -b.L / 2 + 0.06); g.add(tl);
     if (b.style === 'taxi') { const s = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.18, 0.2), m.head); s.position.set(0, b.roof + 0.1, (b.rf + b.rr) / 2); g.add(s); }
     const blob = new THREE.Mesh(new THREE.PlaneGeometry(b.W * 1.3, b.L * 1.15), m.blob); blob.rotation.x = -Math.PI / 2; blob.position.y = 0.04; g.add(blob);

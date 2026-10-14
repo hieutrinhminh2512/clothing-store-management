@@ -30,14 +30,17 @@ G.FX = (function () {
     const pts = new THREE.Points(geo, mat); pts.frustumCulled = false; pts.renderOrder = 5;
     scene.add(pts);
     const P = []; for (let i = 0; i < max; i++) P.push({ life: 0, max: 1, x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, s0: 1, s1: 1, r: 1, g: 1, b: 1, a: 1, drag: 1, grav: 0 });
-    let next = 0;
+    let next = 0, active = false; // idle systems skip the per-frame loop + buffer upload
     return {
       mat, additive,
-      emit(o) { const p = P[next]; next = (next + 1) % max; Object.assign(p, o); p.life = p.max; },
+      emit(o) { const p = P[next]; next = (next + 1) % max; Object.assign(p, o); p.life = p.max; active = true; },
       update(dt) {
+        if (!active) return;
+        let alive = 0;
         for (let i = 0; i < max; i++) {
           const p = P[i];
           if (p.life <= 0) { size[i] = 0; continue; }
+          alive++;
           p.life -= dt;
           const k = 1 - p.life / p.max;
           p.vx *= Math.exp(-p.drag * dt); p.vz *= Math.exp(-p.drag * dt); p.vy = p.vy * Math.exp(-p.drag * dt) - p.grav * dt;
@@ -48,6 +51,7 @@ G.FX = (function () {
           size[i] = G.lerp(p.s0, p.s1, k);
         }
         geo.attributes.position.needsUpdate = true; geo.attributes.color.needsUpdate = true; geo.attributes.size.needsUpdate = true;
+        if (!alive) active = false; // zeros uploaded once, then sleep
       },
     };
   }
@@ -88,7 +92,7 @@ G.FX = (function () {
   };
   FX.resize = function () { [FX.smoke, FX.spark].forEach((s) => { if (s) s.mat.uniforms.uScale.value = innerHeight * 0.6; }); };
   FX.sparks = function (x, y, z, nx, nz, n) {
-    for (let i = 0; i < n; i++) FX.spark.emit({ x, y, z, vx: nx * 6 + (Math.random() - 0.5) * 10, vy: 2 + Math.random() * 5, vz: nz * 6 + (Math.random() - 0.5) * 10, max: 0.35 + Math.random() * 0.4, s0: 0.25, s1: 0.05, r: 6, g: 2.6, b: 0.6, a: 1, drag: 1.5, grav: 14 });
+    for (let i = 0; i < n; i++) FX.spark.emit({ x, y, z, vx: nx * 6 + (Math.random() - 0.5) * 10, vy: 2 + Math.random() * 5, vz: nz * 6 + (Math.random() - 0.5) * 10, max: 0.35 + Math.random() * 0.4, s0: 0.25, s1: 0.05, r: 3.2, g: 1.5, b: 0.45, a: 1, drag: 1.5, grav: 14 });
   };
   FX.splash = function (x, z) {
     for (let i = 0; i < 80; i++) FX.smoke.emit({ x: x + (Math.random() - 0.5) * 3, y: 0.3, z: z + (Math.random() - 0.5) * 3, vx: (Math.random() - 0.5) * 8, vy: 4 + Math.random() * 9, vz: (Math.random() - 0.5) * 8, max: 1.2, s0: 0.6, s1: 2.5, r: 0.85, g: 0.93, b: 1, a: 0.9, drag: 0.6, grav: 12 });
@@ -301,7 +305,7 @@ G.Vehicle = class Vehicle {
       if (w.front) w.steer.rotation.y = (w.mirror ? Math.PI : 0) + this.steerAngle * 1.4;
     }
     for (const f of ud.flames) { f.visible = this.nitroOn; if (f.visible) f.scale.set(1, 0.8 + Math.random() * 0.5, 1); }
-    if (ud.tail) ud.tail.color.setRGB(this.brakeLight ? 7 : 1.4 + G.R.night * 1.2, 0.04, 0.03);
+    if (ud.tail) ud.tail.color.setRGB(this.brakeLight ? 3.2 : 1.2 + G.R.night * 0.4, 0.04, 0.03);
     if (ud.blob) ud.blob.position.y = 0.04 - this.y + G.W.groundHeight(this.x, this.z);
 
     // particles: tyre smoke + skid marks

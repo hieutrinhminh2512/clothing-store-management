@@ -177,7 +177,8 @@ G.Events = (function () {
     G.UI.eventStart(def);
     return true;
   };
-  E.abort = function () { if (!E.active) return; finish(false, 'Đã huỷ sự kiện'); };
+  // silent = no results screen (used when leaving to the title / logging out)
+  E.abort = function (silent) { if (!E.active) return; finish(false, 'Đã huỷ sự kiện', null, 0, silent === true); };
   function cleanup() {
     const st = E.active; if (!st) return;
     st.racers.forEach((r) => scene.remove(r.mesh));
@@ -187,13 +188,15 @@ G.Events = (function () {
     markers.forEach((m) => { m.beacon.visible = true; m.label.visible = true; });
     E.active = null;
   }
-  function finish(success, title, lines, reward) {
+  E.lastDef = null;  // last event played (results screen "race again")
+  function finish(success, title, lines, reward, silent) {
     const st = E.active;
+    E.lastDef = st.def;
     if (reward) { G.save.cash += reward; G.Audio.cash(); }
     if (success && st.def.type === 'race') G.save.stats.wins++;
     G.save.stats.races++;
     G.persist();
-    G.UI.results({ success, title: title || (success ? 'HOÀN THÀNH!' : 'THẤT BẠI'), lines: lines || [], reward: reward || 0, name: st.def.name });
+    if (!silent) G.UI.results({ success, title: title || (success ? 'HOÀN THÀNH!' : 'THẤT BẠI'), lines: lines || [], reward: reward || 0, name: st.def.name });
     cleanup();
   }
 

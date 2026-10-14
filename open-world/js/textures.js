@@ -7,12 +7,14 @@ G.TEX = (function () {
   const T = {};
   const rnd = Math.random;
 
+  // cheaper texture filtering on weak GPUs (preset known at build time)
+  const aniso = () => ({ low: 2, medium: 4 }[G.save && G.save.settings.quality] || 8);
   function canvas(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
   function tex(c, repeat, srgb) {
     const t = new THREE.CanvasTexture(c);
     t.wrapS = t.wrapT = THREE.RepeatWrapping;
     if (repeat) t.repeat.set(repeat, repeat);
-    t.anisotropy = 8;
+    t.anisotropy = aniso();
     if (srgb !== false) t.encoding = THREE.sRGBEncoding;
     return t;
   }
@@ -83,7 +85,8 @@ G.TEX = (function () {
     // subtle frame noise
     for (let i = 0; i < 2500; i++) { xm.fillStyle = `rgba(0,0,0,${rnd() * 0.08})`; xm.fillRect(rnd() * S, rnd() * S, 2, 2); }
     xe.fillStyle = '#000'; xe.fillRect(0, 0, S, S);
-    const warm = ['#ffd9a0', '#ffe7c2', '#ffc87a', '#fff1d6'], cool = ['#cfe6ff', '#a9d4ff', '#e6f2ff'];
+    // soft, slightly desaturated interior light; most offices are dark at night
+    const warm = ['#e8c9a0', '#eed8bc', '#dcb88c', '#f0e2cc'], cool = ['#c4d2e2', '#b4c6da', '#d6e0ea'];
     for (let j = 0; j < cells; j++) {
       for (let i = 0; i < cells; i++) {
         const m = st.m;
@@ -96,9 +99,9 @@ G.TEX = (function () {
         xm.fillStyle = g; xm.fillRect(x0, y0, w, h);
         // sky reflection streak
         xm.fillStyle = 'rgba(255,255,255,0.08)'; xm.fillRect(x0, y0, w * 0.35, h);
-        if (rnd() < 0.42) {
+        if (rnd() < (style === 'house' ? 0.4 : 0.28)) {
           const lc = rnd() < 0.8 ? warm[Math.floor(rnd() * warm.length)] : cool[Math.floor(rnd() * cool.length)];
-          xe.fillStyle = lc; xe.globalAlpha = 0.55 + rnd() * 0.45; xe.fillRect(x0, y0, w, h);
+          xe.fillStyle = lc; xe.globalAlpha = 0.35 + rnd() * 0.45; xe.fillRect(x0, y0, w, h);
           // curtains / silhouettes
           if (rnd() < 0.3) { xe.fillStyle = '#000'; xe.globalAlpha = 0.5; xe.fillRect(x0 + w * rnd() * 0.6, y0, w * 0.3, h); }
           xe.globalAlpha = 1;
@@ -106,7 +109,7 @@ G.TEX = (function () {
       }
     }
     const map = tex(cm), emissive = tex(ce);
-    map.anisotropy = emissive.anisotropy = 4;
+    map.anisotropy = emissive.anisotropy = Math.min(4, aniso());
     return { map, emissive, cells };
   };
 

@@ -199,6 +199,41 @@ G.W = (function () {
   // ================================================================
   const dyn = { windows: [], lampBulbs: null, pools: null, neon: null, antennaLights: null, signals: null, billboards: [], water: null, runwayLights: null, mountains: null };
 
+  // ---------- Chunked instancing ----------
+  // r128 culls an InstancedMesh by its geometry's bounding sphere (unit box at the origin), so one
+  // map-wide mesh is never culled correctly. Split instances into a grid; each chunk gets a geometry
+  // view (shared buffers) whose bounding sphere covers its instances -> frustum + shadow culling work.
+  // `far` additionally hides small props beyond that distance (see W.update).
+  const chunks = [];
+  const _m4 = new THREE.Matrix4(), _sp = new THREE.Sphere(), _bb = new THREE.Box3(), _box = new THREE.Box3();
+  function chunked(scene, geo, mat, items, cell, place, o) {
+    o = o || {};
+    if (!geo.boundingSphere) geo.computeBoundingSphere();
+    const groups = new Map();
+    for (const it of items) {
+      const k = cell === Infinity ? 0 : Math.floor(it.x / cell) + ',' + Math.floor(it.z / cell);
+      let g = groups.get(k); if (!g) groups.set(k, g = []); g.push(it);
+    }
+    const out = [];
+    for (const list of groups.values()) {
+      const g = new THREE.BufferGeometry();
+      g.setIndex(geo.index);
+      for (const k in geo.attributes) g.setAttribute(k, geo.attributes[k]);
+      const mesh = new THREE.InstancedMesh(g, mat, list.length);
+      _box.makeEmpty();
+      list.forEach((it, i) => {
+        place(it, _m4, mesh, i); mesh.setMatrixAt(i, _m4);
+        _box.union(_sp.copy(geo.boundingSphere).applyMatrix4(_m4).getBoundingBox(_bb));
+      });
+      g.boundingBox = _box.clone(); g.boundingSphere = _box.getBoundingSphere(new THREE.Sphere());
+      mesh.castShadow = !!o.cast; mesh.receiveShadow = !!o.receive;
+      if (o.order) mesh.renderOrder = o.order;
+      scene.add(mesh); out.push(mesh);
+      if (o.far) chunks.push({ mesh, s: g.boundingSphere, far: o.far });
+    }
+    return out;
+  }
+
   W.build = function (scene) {
     G.rng.seed(20240611);
     const R = G.rng;
@@ -334,14 +369,11 @@ G.W = (function () {
     tConcrete.repeat.set(1, 1);
     const slabMat = new THREE.MeshStandardMaterial({ map: tConcrete, roughness: 0.9, color: G.col(0xd0ccc4) });
     slabMat.onBeforeCompile = worldUV(4);
-    const slabMesh = new THREE.InstancedMesh(slabGeo, slabMat, slabs.length);
-    const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), v3 = new THREE.Vector3(), s3 = new THREE.Vector3();
-    slabs.forEach((s, i) => { m4.compose(v3.set(s.x, 0, s.z), q.identity(), s3.set(s.s, 1, s.s)); slabMesh.setMatrixAt(i, m4); });
-    slabMesh.receiveShadow = true; scene.add(slabMesh);
+    const q = new THREE.Quaternion(), v3 = new THREE.Vector3(), s3 = new THREE.Vector3();
+    const CH = 480; // chunk size for city props (4x4 blocks): culling wins vs. extra draw calls
+    chunked(scene, slabGeo, slabMat, slabs, CH, (s, m4) => m4.compose(v3.set(s.x, 0, s.z), q.identity(), s3.set(s.s, 1, s.s)), { receive: true });
     const parkMat = new THREE.MeshStandardMaterial({ map: tGrass, color: G.col(0xa8d890), roughness: 1, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
-    const parkMesh = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 0.06, 1), parkMat, parkSlabs.length);
-    parkSlabs.forEach((s, i) => { m4.compose(v3.set(s.x, 0.0, s.z), q.identity(), s3.set(s.s, 1, s.s)); parkMesh.setMatrixAt(i, m4); });
-    parkMesh.receiveShadow = true; scene.add(parkMesh);
+    chunked(scene, new THREE.BoxGeometry(1, 0.06, 1), parkMat, parkSlabs, Infinity, (s, m4) => m4.compose(v3.set(s.x, 0.0, s.z), q.identity(), s3.set(s.s, 1, s.s)), { receive: true });
 
     // Buildings (instanced per façade style)
     const boxGeo = new THREE.BoxGeometry(1, 1, 1); boxGeo.translate(0, 0.5, 0);
@@ -359,49 +391,39 @@ G.W = (function () {
       const f = facades[st], sm = styleMat[st];
       const mat = new THREE.MeshStandardMaterial({ map: f.map, emissiveMap: f.emissive, emissive: new THREE.Color(1, 0.9, 0.75), emissiveIntensity: 0.0, roughness: sm.rough, metalness: sm.metal });
       mat.onBeforeCompile = facadeShader(sm.winW, sm.winH, f.cells);
-      const mesh = new THREE.InstancedMesh(boxGeo, mat, list.length);
-      list.forEach((b, i) => {
-        m4.compose(v3.set(b.x, b.y, b.z), q.identity(), s3.set(b.w, b.h, b.d)); mesh.setMatrixAt(i, m4);
+      chunked(scene, boxGeo, mat, list, CH, (b, m4, mesh, i) => {
+        m4.compose(v3.set(b.x, b.y, b.z), q.identity(), s3.set(b.w, b.h, b.d));
         mesh.setColorAt(i, tint.copy(G.col(sm.base[Math.floor(b.tint * sm.base.length)])));
-        // collision for things outside the city blocks would go here; blocks already cover buildings
-      });
-      mesh.castShadow = true; mesh.receiveShadow = true;
-      scene.add(mesh);
+      }, { cast: true, receive: true });
       dyn.windows.push({ mat, style: st });
     }
     // House roofs (square pyramids)
     if (roofs.length) {
       const rg = new THREE.ConeGeometry(Math.SQRT1_2, 1, 4, 1); rg.rotateY(Math.PI / 4); rg.translate(0, 0.5, 0);
       const rm = new THREE.MeshStandardMaterial({ roughness: 0.8, flatShading: true });
-      const mesh = new THREE.InstancedMesh(rg, rm, roofs.length);
       const rc = [0x8a3b2a, 0x5a5e66, 0x6b4a3a, 0x3c4a5c, 0x9a5a3a];
-      roofs.forEach((r, i) => { m4.compose(v3.set(r.x, r.y, r.z), q.identity(), s3.set(r.w, r.h, r.d)); mesh.setMatrixAt(i, m4); mesh.setColorAt(i, tint.copy(G.col(rc[Math.floor(r.c * rc.length)]))); });
-      mesh.castShadow = true; mesh.receiveShadow = true; scene.add(mesh);
+      chunked(scene, rg, rm, roofs, CH, (r, m4, mesh, i) => { m4.compose(v3.set(r.x, r.y, r.z), q.identity(), s3.set(r.w, r.h, r.d)); mesh.setColorAt(i, tint.copy(G.col(rc[Math.floor(r.c * rc.length)]))); }, { cast: true, receive: true, far: 1400 });
     }
     // Rooftop neon signs
     if (neon.length) {
       const ng = new THREE.BoxGeometry(1, 1, 0.4);
-      const nm = new THREE.MeshBasicMaterial({ color: new THREE.Color(2, 2, 2), toneMapped: true });
-      const mesh = new THREE.InstancedMesh(ng, nm, neon.length);
-      const hues = [0xff2d95, 0x00e5ff, 0xffd400, 0x7cff4f, 0xb04dff, 0xff6a00];
-      neon.forEach((n, i) => {
-        m4.compose(v3.set(n.x, n.y, n.z), q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), n.rot), s3.set(n.w, n.h, 1)); mesh.setMatrixAt(i, m4);
+      const nm = new THREE.MeshBasicMaterial({ color: new THREE.Color(1, 1, 1), toneMapped: true });
+      // softer, less saturated sign colours (rose, teal, amber, mint, lilac, coral)
+      const hues = [0xe0608f, 0x4cc4d6, 0xe8c25a, 0x7fd48a, 0xa58ad8, 0xe8875a];
+      chunked(scene, ng, nm, neon, CH, (n, m4, mesh, i) => {
+        m4.compose(v3.set(n.x, n.y, n.z), q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), n.rot), s3.set(n.w, n.h, 1));
         mesh.setColorAt(i, tint.copy(G.col(hues[Math.floor(n.hue * hues.length)])));
       });
-      scene.add(mesh); dyn.neon = nm;
+      dyn.neon = nm;
     }
     // Antennas with blinking red lights
     if (antennas.length) {
       const ag = new THREE.CylinderGeometry(0.25, 0.5, 1, 6); ag.translate(0, 0.5, 0);
-      const am = new THREE.InstancedMesh(ag, new THREE.MeshStandardMaterial({ color: G.col(0x555a60), metalness: 0.8, roughness: 0.4 }), antennas.length);
-      const lg = new THREE.SphereGeometry(0.9, 8, 6);
-      const lm = new THREE.MeshBasicMaterial({ color: new THREE.Color(6, 0.2, 0.1) });
-      const lmesh = new THREE.InstancedMesh(lg, lm, antennas.length);
-      antennas.forEach((a, i) => {
-        m4.compose(v3.set(a.x, a.y, a.z), q.identity(), s3.set(1, a.h, 1)); am.setMatrixAt(i, m4);
-        m4.compose(v3.set(a.x, a.y + a.h, a.z), q.identity(), s3.set(1, 1, 1)); lmesh.setMatrixAt(i, m4);
-      });
-      scene.add(am); scene.add(lmesh); dyn.antennaLights = lm;
+      const lg = new THREE.SphereGeometry(0.6, 8, 6);
+      const lm = new THREE.MeshBasicMaterial({ color: new THREE.Color(3, 0.2, 0.1) });
+      chunked(scene, ag, new THREE.MeshStandardMaterial({ color: G.col(0x555a60), metalness: 0.8, roughness: 0.4 }), antennas, CH, (a, m4) => m4.compose(v3.set(a.x, a.y, a.z), q.identity(), s3.set(1, a.h, 1)), { far: 1400 });
+      chunked(scene, lg, lm, antennas, CH, (a, m4) => m4.compose(v3.set(a.x, a.y + a.h, a.z), q.identity(), s3.set(1, 1, 1)));
+      dyn.antennaLights = lm;
     }
 
     buildBillboards(scene, bld);
@@ -536,8 +558,8 @@ G.W = (function () {
     const bowl = new THREE.Mesh(new THREE.CylinderGeometry(3.4, 1.2, 0.8, 24), stone); bowl.position.set(cx, 5.6, cz); scene.add(bowl);
     addCollider({ t: 'circle', x: cx, z: cz, r: 9.6 });
     // neon arches over the plaza entrances
-    const archMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(0.2, 3.0, 4.0) });
-    const archMat2 = new THREE.MeshBasicMaterial({ color: new THREE.Color(4.0, 0.3, 2.0) });
+    const archMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(0.25, 1.2, 1.5) });
+    const archMat2 = new THREE.MeshBasicMaterial({ color: new THREE.Color(1.5, 0.45, 0.9) });
     [[0, size / 2 - 3, 0, archMat], [0, -size / 2 + 3, 0, archMat2], [size / 2 - 3, 0, Math.PI / 2, archMat2], [-size / 2 + 3, 0, Math.PI / 2, archMat]].forEach(([ox, oz, rot, mat]) => {
       const a = new THREE.Mesh(new THREE.TorusGeometry(11, 0.45, 8, 40, Math.PI), mat);
       a.position.set(cx + ox, 0, cz + oz); a.rotation.y = rot; scene.add(a);
@@ -552,14 +574,14 @@ G.W = (function () {
     roof.rotation.x = -Math.PI / 2; roof.position.set(cx, 24.2, cz); roof.castShadow = true; scene.add(roof);
     const pitch = new THREE.Mesh(new THREE.CircleGeometry(30, 40), new THREE.MeshStandardMaterial({ color: G.col(0x2f8a3a), roughness: 1 }));
     pitch.rotation.x = -Math.PI / 2; pitch.position.set(cx, 0.35, cz); scene.add(pitch);
-    const band = new THREE.Mesh(new THREE.CylinderGeometry(44.2, 44.2, 1.4, 48, 1, true), new THREE.MeshBasicMaterial({ color: new THREE.Color(0.3, 1.2, 3.5) }));
+    const band = new THREE.Mesh(new THREE.CylinderGeometry(44.2, 44.2, 1.4, 48, 1, true), new THREE.MeshBasicMaterial({ color: new THREE.Color(0.35, 0.8, 1.6) }));
     band.position.set(cx, 20, cz); scene.add(band);
     dyn.arches = dyn.arches || []; dyn.arches.push(band.material);
     for (let k = 0; k < 4; k++) {
       const a = k * Math.PI / 2 + Math.PI / 4, px = cx + Math.cos(a) * 46, pz = cz + Math.sin(a) * 46;
       const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.9, 40, 8), new THREE.MeshStandardMaterial({ color: G.col(0x666a70), metalness: 0.7, roughness: 0.4 }));
       pole.position.set(px, 20, pz); scene.add(pole);
-      const panel = new THREE.Mesh(new THREE.BoxGeometry(6, 3, 0.6), new THREE.MeshBasicMaterial({ color: new THREE.Color(5, 5, 4.5) }));
+      const panel = new THREE.Mesh(new THREE.BoxGeometry(6, 3, 0.6), new THREE.MeshBasicMaterial({ color: new THREE.Color(2.4, 2.3, 2.1) }));
       panel.position.set(px, 40, pz); panel.lookAt(cx, 0, cz); scene.add(panel);
     }
   }
@@ -575,7 +597,7 @@ G.W = (function () {
     for (let i = 0; i < Math.min(10, cands.length); i++) {
       const b = cands[i * 2 % cands.length];
       const t = ads[i % ads.length];
-      const mat = new THREE.MeshBasicMaterial({ map: t, color: new THREE.Color(1.6, 1.6, 1.6) });
+      const mat = new THREE.MeshBasicMaterial({ map: t, color: new THREE.Color(1, 1, 1) });
       const w = Math.min(b.w, b.d) * 0.8, h = w * 0.5;
       const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat);
       const side = i % 4;
@@ -603,27 +625,21 @@ G.W = (function () {
       add(p.x - n.x * (RW / 2 + 1.5), p.y - n.y * (RW / 2 + 1.5), n.x, n.y);
     }
     for (let x = -BEACH_X + 30; x < BEACH_X; x += 50) add(x, BEACH_Z - HR - 1.5, 0, 1);
-    const n = L.length;
     const poleGeo = new THREE.CylinderGeometry(0.12, 0.2, 9, 6); poleGeo.translate(0, 4.5, 0);
     const armGeo = new THREE.BoxGeometry(0.16, 0.16, 3); armGeo.translate(0, 9, 1.4);
     const headGeo = new THREE.BoxGeometry(0.7, 0.18, 1.2); headGeo.translate(0, 8.9, 2.8);
     const metal = new THREE.MeshStandardMaterial({ color: G.col(0x2c3036), metalness: 0.7, roughness: 0.45 });
-    const poles = new THREE.InstancedMesh(poleGeo, metal, n), arms = new THREE.InstancedMesh(armGeo, metal, n);
     const bulbMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(1, 0.9, 0.7) });
-    const bulbs = new THREE.InstancedMesh(headGeo, bulbMat, n);
-    const poolTex = G.TEX.radial('rgba(255,210,150,0.9)', 'rgba(255,200,140,0)');
-    const poolMat = new THREE.MeshBasicMaterial({ map: poolTex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, color: new THREE.Color(1, 0.75, 0.45), opacity: 0, polygonOffset: true, polygonOffsetFactor: -6, polygonOffsetUnits: -12, fog: true });
-    const poolGeo = new THREE.PlaneGeometry(14, 14); poolGeo.rotateX(-Math.PI / 2);
-    const pools = new THREE.InstancedMesh(poolGeo, poolMat, n);
-    const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), one = new THREE.Vector3(1, 1, 1), v = new THREE.Vector3();
-    L.forEach((l, i) => {
-      q.setFromAxisAngle(up, Math.atan2(l.dx, l.dz));
-      m4.compose(v.set(l.x, 0, l.z), q, one); poles.setMatrixAt(i, m4); arms.setMatrixAt(i, m4); bulbs.setMatrixAt(i, m4);
-      m4.compose(v.set(l.x + l.dx * 3.5, 0.08, l.z + l.dz * 3.5), q.identity(), one); pools.setMatrixAt(i, m4);
-    });
-    poles.castShadow = true;
-    scene.add(poles, arms, bulbs, pools);
-    pools.renderOrder = 2;
+    const poolTex = G.TEX.radial('rgba(255,214,170,0.8)', 'rgba(255,200,150,0)');
+    const poolMat = new THREE.MeshBasicMaterial({ map: poolTex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, color: new THREE.Color(1, 0.8, 0.58), opacity: 0, polygonOffset: true, polygonOffsetFactor: -6, polygonOffsetUnits: -12, fog: true });
+    const poolGeo = new THREE.PlaneGeometry(12, 12); poolGeo.rotateX(-Math.PI / 2);
+    const q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), one = new THREE.Vector3(1, 1, 1), v = new THREE.Vector3();
+    const lampPose = (l, m4) => m4.compose(v.set(l.x, 0, l.z), q.setFromAxisAngle(up, Math.atan2(l.dx, l.dz)), one);
+    const CH = 480, FAR = 900;
+    chunked(scene, poleGeo, metal, L, CH, lampPose, { cast: true, far: FAR });
+    chunked(scene, armGeo, metal, L, CH, lampPose, { far: FAR });
+    chunked(scene, headGeo, bulbMat, L, CH, lampPose, { far: FAR * 1.4 });
+    chunked(scene, poolGeo, poolMat, L, CH, (l, m4) => m4.compose(v.set(l.x + l.dx * 3.5, 0.08, l.z + l.dz * 3.5), q.identity(), one), { order: 2, far: FAR });
     dyn.lampBulbs = bulbMat; dyn.pools = poolMat;
   }
 
@@ -675,26 +691,19 @@ G.W = (function () {
     const trunkMat = new THREE.MeshStandardMaterial({ color: G.col(0x5a4030), roughness: 1 });
     const leafMat = new THREE.MeshStandardMaterial({ roughness: 0.9, flatShading: true });
     const leaves = trees.filter((t) => !t.pine), pines = trees.filter((t) => t.pine);
-    const trunks = new THREE.InstancedMesh(trunkGeo, trunkMat, trees.length);
-    const lm = new THREE.InstancedMesh(leafGeo, leafMat, leaves.length);
-    const pm = new THREE.InstancedMesh(pineGeo, leafMat, pines.length);
-    const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), v = new THREE.Vector3(), s = new THREE.Vector3(), c = new THREE.Color();
+    const q = new THREE.Quaternion(), v = new THREE.Vector3(), s = new THREE.Vector3(), c = new THREE.Color(), up = new THREE.Vector3(0, 1, 0);
     const greens = [0x3f6b2a, 0x4d7d33, 0x5a8a3a, 0x355f28, 0x6b8f3a];
-    let li = 0, pi = 0;
-    trees.forEach((t, i) => {
-      q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), (t.x * 13.7 + t.z) % 6.28);
-      const sy = t.palm ? 2.2 : 1;
-      m4.compose(v.set(t.x, 0, t.z), q, s.set(t.s, t.s * sy, t.s)); trunks.setMatrixAt(i, m4);
-      c.copy(G.col(greens[Math.abs(Math.floor(t.x * 7 + t.z * 3)) % greens.length]));
-      if (t.pine) { m4.compose(v.set(t.x, 0, t.z), q, s.set(t.s, t.s, t.s)); pm.setMatrixAt(pi, m4); pm.setColorAt(pi++, c); }
-      else {
-        if (t.palm) m4.compose(v.set(t.x, 4.5 * t.s, t.z), q, s.set(t.s * 1.2, t.s * 0.45, t.s * 1.2));
-        else m4.compose(v.set(t.x, 0, t.z), q, s.set(t.s, t.s, t.s));
-        lm.setMatrixAt(li, m4); lm.setColorAt(li++, c);
-      }
-      addCollider({ t: 'circle', x: t.x, z: t.z, r: 0.6 * t.s });
-    });
-    [trunks, lm, pm].forEach((m) => { m.castShadow = true; m.receiveShadow = true; scene.add(m); });
+    const rot = (t) => q.setFromAxisAngle(up, (t.x * 13.7 + t.z) % 6.28);
+    const tint = (t) => c.copy(G.col(greens[Math.abs(Math.floor(t.x * 7 + t.z * 3)) % greens.length]));
+    const o = { cast: true, receive: true, far: 1500 }, CH = 1300;
+    chunked(scene, trunkGeo, trunkMat, trees, CH, (t, m4) => m4.compose(v.set(t.x, 0, t.z), rot(t), s.set(t.s, t.s * (t.palm ? 2.2 : 1), t.s)), o);
+    chunked(scene, pineGeo, leafMat, pines, CH, (t, m4, mesh, i) => { m4.compose(v.set(t.x, 0, t.z), rot(t), s.set(t.s, t.s, t.s)); mesh.setColorAt(i, tint(t)); }, o);
+    chunked(scene, leafGeo, leafMat, leaves, CH, (t, m4, mesh, i) => {
+      if (t.palm) m4.compose(v.set(t.x, 4.5 * t.s, t.z), rot(t), s.set(t.s * 1.2, t.s * 0.45, t.s * 1.2));
+      else m4.compose(v.set(t.x, 0, t.z), rot(t), s.set(t.s, t.s, t.s));
+      mesh.setColorAt(i, tint(t));
+    }, o);
+    trees.forEach((t) => addCollider({ t: 'circle', x: t.x, z: t.z, r: 0.6 * t.s }));
   }
 
   // ---------- Stunt park & ramps ----------
@@ -730,7 +739,7 @@ G.W = (function () {
     // runway edge lights
     const rl = [];
     for (let z = RUNWAY.z0; z <= RUNWAY.z1; z += 30) { rl.push([RUNWAY.x0 - 1.5, z]); rl.push([RUNWAY.x1 + 1.5, z]); }
-    const rlm = new THREE.MeshBasicMaterial({ color: new THREE.Color(0.6, 1.2, 4) });
+    const rlm = new THREE.MeshBasicMaterial({ color: new THREE.Color(0.5, 0.8, 1.6) });
     const rli = new THREE.InstancedMesh(new THREE.SphereGeometry(0.35, 6, 4), rlm, rl.length);
     rl.forEach((p, i) => { m4.makeTranslation(p[0], 0.35, p[1]); rli.setMatrixAt(i, m4); });
     scene.add(rli); dyn.runwayLights = rlm;
@@ -810,14 +819,18 @@ G.W = (function () {
   const sigColors = { g: new THREE.Color(0.1, 4, 0.8), y: new THREE.Color(4, 2.4, 0.1), r: new THREE.Color(4, 0.15, 0.1) };
   W.update = function (dt, t, night) {
     const n = night;
-    for (const w of dyn.windows) w.mat.emissiveIntensity = (w.style === 'house' ? 0.75 : 1.15) * n + 0.03;
-    if (dyn.lampBulbs) dyn.lampBulbs.color.setRGB(1 + 6 * n, 0.85 + 4.5 * n, 0.6 + 2.6 * n);
-    if (dyn.pools) dyn.pools.opacity = 0.32 * n;
-    if (dyn.neon) dyn.neon.color.setScalar(1.1 + 2.2 * n);
-    if (dyn.arches) dyn.arches.forEach((m) => { m.userData.base = m.userData.base || m.color.clone(); m.color.copy(m.userData.base).multiplyScalar(0.5 + 0.6 * n); });
-    if (dyn.antennaLights) dyn.antennaLights.color.setRGB(Math.sin(t * 3) > 0.3 ? 8 : 0.2, 0.15, 0.1);
-    if (dyn.runwayLights) dyn.runwayLights.color.setRGB(0.3 + 0.6 * n, 0.6 + 1.6 * n, 1.5 + 4 * n);
-    dyn.billboards.forEach((m) => m.color.setScalar(1.0 + 1.6 * n));
+    // night levels are deliberately modest: bloom picks up only the brightest bits (bulbs, signals)
+    for (const w of dyn.windows) w.mat.emissiveIntensity = (w.style === 'house' ? 0.5 : 0.62) * n + 0.02;
+    if (dyn.lampBulbs) dyn.lampBulbs.color.setRGB(1 + 2.2 * n, 0.85 + 1.75 * n, 0.6 + 1.1 * n);
+    if (dyn.pools) dyn.pools.opacity = 0.2 * n;
+    if (dyn.neon) dyn.neon.color.setScalar(0.9 + 0.75 * n);
+    if (dyn.arches) dyn.arches.forEach((m) => { m.userData.base = m.userData.base || m.color.clone(); m.color.copy(m.userData.base).multiplyScalar(0.55 + 0.45 * n); });
+    if (dyn.antennaLights) dyn.antennaLights.color.setRGB(Math.sin(t * 3) > 0.3 ? 3 : 0.2, 0.12, 0.08);
+    if (dyn.runwayLights) dyn.runwayLights.color.setRGB(0.4 + 0.2 * n, 0.6 + 0.5 * n, 1.0 + 0.8 * n);
+    dyn.billboards.forEach((m) => m.color.setScalar(1.0 - 0.15 * n));
+    // distance culling of small chunked props (beyond fog they are invisible anyway)
+    const cam = G.R && G.R.camera;
+    if (cam) for (const c of chunks) c.mesh.visible = cam.position.distanceTo(c.s.center) - c.s.radius < c.far;
     if (dyn.water && dyn.water.normalMap) { dyn.water.normalMap.offset.x = t * 0.004; dyn.water.normalMap.offset.y = t * 0.0025; }
     if (dyn.mountains) { const k = 1 - 0.8 * n; dyn.mountains.color.setRGB(k, k, k * 1.05); }
     // traffic signals: recolour once per second

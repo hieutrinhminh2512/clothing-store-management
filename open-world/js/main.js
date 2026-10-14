@@ -4,8 +4,11 @@
 'use strict';
 
 G.Game = (function () {
-  const Gm = { state: 'loading', paused: false, simPaused: false, garage: false, camMode: 0, time: 0, player: null };
+  const Gm = { state: 'loading', paused: false, simPaused: false, garage: false, camMode: 0, time: 0, player: null, onFoot: false, char: null, parked: [] };
   let scene, camera, clock, headlight, garageLight;
+  // on-foot state: camera orbit, enter/exit transitions, fleeing NPC drivers
+  let footYaw = 0, footPitch = 0.22, lastMouse = -9, dragging = false, enterT = null, exitT = null, footHint = null;
+  const npcs = [], footPivot = new THREE.Vector3();
   let camYaw = 0, camY = 3, fov = 62, shake = 0, flash = 0, saveT = 0, fpsAcc = 0, fpsN = 0, fpsWarned = false, titleA = 0;
   const camTmp = new THREE.Vector3(), lookTmp = new THREE.Vector3();
 
@@ -14,7 +17,10 @@ G.Game = (function () {
     ['Khởi tạo đồ hoạ...', () => { G.R.init(document.getElementById('game')); scene = G.R.scene; camera = G.R.camera; clock = new THREE.Clock(); }],
     ['Dựng thành phố, đường cao tốc, bãi biển...', () => { G.W.build(scene); }],
     ['Chuẩn bị hiệu ứng...', () => { G.FX.init(scene); G.Police.init(scene); }],
-    ['Lắp ráp siêu xe...', () => { makePlayer(G.save.selected); spawnPlayer(); }],
+    ['Lắp ráp siêu xe...', () => {
+      makePlayer(G.save.selected); spawnPlayer();
+      Gm.char = new G.Character(); Gm.char.mesh.visible = false; scene.add(Gm.char.mesh);
+    }],
     ['Thả xe cộ ra đường...', () => {
       G.Traffic.init(scene, G.QUALITY[G.save.settings.quality].traffic);
       for (let k = 0; k < 3; k++) G.Traffic.add(1000 + k, true); // patrol cars
@@ -25,7 +31,11 @@ G.Game = (function () {
     ['Bật đèn thành phố...', () => { G.R.setTime(G.save.hour, Gm.player); G.W.update(0, 0, G.R.night); }],
   ];
   function boot(i) {
-    if (i >= steps.length) { Gm.toTitle(); requestAnimationFrame(frame); return; }
+    if (i >= steps.length) {
+      // login gate (auth.js) runs before the title screen when present
+      if (G.Auth && G.Auth.gate) G.Auth.gate(() => Gm.toTitle()); else Gm.toTitle();
+      requestAnimationFrame(frame); return;
+    }
     G.UI.loading ? G.UI.loading(i / steps.length, steps[i][0]) : null;
     document.getElementById('loadText').textContent = steps[i][0];
     document.getElementById('loadFill').style.width = Math.round(i / steps.length * 100) + '%';
@@ -54,23 +64,178 @@ G.Game = (function () {
       scene.remove(old.mesh);
       v.x = old.x; v.z = old.z; v.y = old.y; v.heading = old.heading; v.nitro = Math.min(old.nitro, v.perf.nitroCap);
     }
+    // the owned car comes back: drop any parked copy of it
+    Gm.parked = Gm.parked.filter((p) => { if (p.owned) { scene.remove(p.mesh); return false; } return true; });
+    v.owned = true;
     scene.add(v.mesh);
-    // headlights (one spot light that lights the road ahead)
-    headlight = new THREE.SpotLight(0xfff1dc, 0, 140, 0.55, 0.55, 1.2);
-    headlight.position.set(0, 0.8, spec.body.L / 2);
-    headlight.target.position.set(0, 0, 40);
-    v.mesh.add(headlight); v.mesh.add(headlight.target);
-    v.onHit = (other, imp) => { if (other.isCop && imp > 4 && !G.Events.active) G.Police.addHeat(0.35); };
-    Gm.player = v;
+    setupPlayerCar(v);
+    if (Gm.onFoot) { v.isPlayer = false; parkInput(v); }
     v.syncMesh(0);
     return v;
   }
+  // one shared headlight (spot light) that moves to whichever car the player drives
+  function setupPlayerCar(v) {
+    if (!headlight) {
+      headlight = new THREE.SpotLight(0xfff1dc, 0, 140, 0.55, 0.55, 1.2);
+      headlight.target.position.set(0, 0, 40);
+    }
+    headlight.position.set(0, 0.8, v.spec.body.L / 2);
+    v.mesh.add(headlight); v.mesh.add(headlight.target);
+    v.onHit = (other, imp) => { if (other.isCop && imp > 4 && !G.Events.active) G.Police.addHeat(0.35); };
+    v.isPlayer = true;
+    Gm.player = v;
+  }
+  function parkInput(v) { Object.assign(v.input, { throttle: 0, brake: 0, steer: 0, handbrake: true, nitro: false }); }
   function spawnPlayer() {
     const p = G.W.nearestRoadPose(0, 60, 0);
     Gm.player.setPose(p.x, p.z, p.heading);
     camYaw = p.heading;
   }
   Gm.previewCar = function (id) { makePlayer(id); };
+  Gm.focus = () => (Gm.onFoot ? Gm.char : Gm.player);
+
+  // ---------------- On foot: exit / enter / car-jacking ----------------
+  const JACK_MAP = { sedan: 'vanta', hatch: 'kitsune', suv: 'titan', van: 'titan', taxi: 'vanta' };
+  // point beside a car door; side 1 = driver (left), -1 = passenger
+  function doorPoint(v, side, out) {
+    const fx = Math.sin(v.heading), fz = Math.cos(v.heading), sx = fz, sz = -fx;
+    const w = (v.Wd || v.W || 1.9) / 2 + (out === undefined ? 0.55 : out);
+    return { x: v.x + sx * w * side + fx * 0.35, z: v.z + sz * w * side + fz * 0.35 };
+  }
+  function freeSpot(x, z) { return !G.W.collideCircle(x, z, 0.4, () => {}) && z < G.CFG.SEA_Z - 2; }
+  function setFootHud(on) {
+    const hud = document.getElementById('hud'); if (hud) hud.classList.toggle('on-foot', on);
+    const sp = document.querySelector('.speedo'); if (sp) sp.style.visibility = on ? 'hidden' : '';
+    if (!on && footHint) footHint.style.display = 'none';
+  }
+  function hint(text) {
+    if (!footHint) {
+      footHint = document.createElement('div'); footHint.id = 'footHint';
+      footHint.style.cssText = 'position:absolute;left:50%;bottom:13%;transform:translateX(-50%);padding:7px 16px;border-radius:999px;background:rgba(8,11,22,0.8);border:1px solid rgba(0,229,255,0.45);color:#eaf6ff;font:700 14px "Chakra Petch",sans-serif;letter-spacing:1px;pointer-events:none;display:none;white-space:nowrap';
+      (document.getElementById('hud') || document.body).appendChild(footHint);
+    }
+    if (text) { if (footHint.textContent !== text) footHint.textContent = text; footHint.style.display = ''; } else footHint.style.display = 'none';
+  }
+  // nearest car the character can get into: the player's / parked cars, or a civilian to car-jack
+  function enterTarget() {
+    const C = Gm.char; let best = null, bd = 4.6;
+    for (const v of [Gm.player, ...Gm.parked]) { const d = Math.hypot(v.x - C.x, v.z - C.z); if (d < bd && v.speed < 6) { bd = d; best = { v }; } }
+    for (const t of G.Traffic.cars) {
+      if (t.police) continue;
+      const d = Math.hypot(t.x - C.x, t.z - C.z) - 0.4; // prefer own car when equally close
+      if (d < bd && (t.speed < 9 || t.wrecked)) { bd = d; best = { t }; }
+    }
+    return best;
+  }
+  function jack(t) {
+    const spec = G.carById(JACK_MAP[t.style] || 'vanta');
+    const v = new G.Vehicle(spec, t.hex !== undefined ? t.hex : 0xc0c4c8, { upgrades: { engine: 0, handling: 0, nitro: 0 } });
+    v.jacked = true; v.isPlayer = false;
+    v.setPose(t.x, t.z, t.heading);
+    scene.add(v.mesh); parkInput(v);
+    G.Traffic.remove(t, true);
+    Gm.parked.push(v);
+    // the driver bails out and runs off
+    const d = doorPoint(v, 1, 0.6), n = new G.Character({ npc: true });
+    n.setPose(d.x, d.z, v.heading + Math.PI / 2); n.life = 7; scene.add(n.mesh); npcs.push(n);
+    if (!G.Events.active && G.Traffic.cars.some((c) => c.police && Math.hypot(c.x - v.x, c.z - v.z) < 90)) { G.Police.addHeat(1); G.UI.toast('🚨 Cảnh sát thấy bạn cướp xe!'); }
+    else G.UI.toast('🚗 Cướp xe thành công!', 1600);
+    return v;
+  }
+  function trimParked() {
+    // keep at most 4 stolen cars lying around (never the owned one)
+    const F = Gm.focus();
+    while (Gm.parked.filter((p) => !p.owned).length > 4) {
+      let far = null, fd = -1;
+      for (const p of Gm.parked) if (!p.owned) { const d = Math.hypot(p.x - F.x, p.z - F.z); if (d > fd) { fd = d; far = p; } }
+      scene.remove(far.mesh); Gm.parked.splice(Gm.parked.indexOf(far), 1);
+    }
+  }
+  Gm.exitVehicle = function () {
+    if (Gm.onFoot || Gm.state !== 'play' || Gm.garage || enterT || !Gm.char) return false;
+    if (G.Events.active) { G.UI.toast('Không thể xuống xe khi đang trong sự kiện'); return false; }
+    const P = Gm.player;
+    if (P.speed > 9 || !P.grounded) { G.UI.toast('Giảm tốc để xuống xe'); return false; }
+    let side = 1, to = doorPoint(P, 1);
+    if (!freeSpot(to.x, to.z)) { const o = doorPoint(P, -1); if (freeSpot(o.x, o.z)) { side = -1; to = o; } else { to = { x: P.x - Math.sin(P.heading) * (P.L / 2 + 0.8), z: P.z - Math.cos(P.heading) * (P.L / 2 + 0.8) }; } }
+    const from = doorPoint(P, side, -0.5);
+    Gm.onFoot = true; P.isPlayer = false; parkInput(P);
+    const C = Gm.char;
+    C.setPose(from.x, from.z, P.heading); C.y = P.y; C.mesh.visible = true;
+    exitT = { t: 0, from, to };
+    footYaw = camYaw; footPitch = 0.22; footPivot.set(C.x, C.y + 1.55, C.z);
+    setFootHud(true);
+    G.Audio.update(P, 0, true);
+    return true;
+  };
+  Gm.enterVehicle = function () {
+    if (!Gm.onFoot || enterT || exitT || Gm.state !== 'play' || !Gm.char || Gm.char.knockT > 0) return false;
+    const tg = enterTarget();
+    if (!tg) { G.UI.toast('Không có xe nào ở gần'); return false; }
+    const v = tg.v || jack(tg.t), C = Gm.char;
+    const d1 = doorPoint(v, 1), d2 = doorPoint(v, -1);
+    const side = Math.hypot(d2.x - C.x, d2.z - C.z) + 1.5 < Math.hypot(d1.x - C.x, d1.z - C.z) ? -1 : 1;
+    enterT = { v, t: 0, at: 0, side };
+    return true;
+  };
+  Gm.toggleVehicle = function () { return Gm.onFoot ? Gm.enterVehicle() : Gm.exitVehicle(); };
+  function finishEnter(v) {
+    const old = Gm.player;
+    if (v !== old) {
+      Gm.parked = Gm.parked.filter((p) => p !== v);
+      old.isPlayer = false; parkInput(old); Gm.parked.push(old);
+      setupPlayerCar(v);
+      trimParked();
+    }
+    v.isPlayer = true; v.input.handbrake = false;
+    Gm.onFoot = false; enterT = null; exitT = null;
+    Gm.char.mesh.visible = false; Gm.char.vx = Gm.char.vz = 0;
+    camYaw = v.heading; camY = v.y + 2.1;
+    setFootHud(false);
+  }
+  // stepping-out / walking-to-the-door transitions, then normal player control
+  function footControl(dt) {
+    const C = Gm.char, I = G.input, K = I.keys;
+    if (exitT) {
+      exitT.t += dt;
+      const k = G.clamp(exitT.t / 0.45, 0, 1), e = k * k * (3 - 2 * k);
+      C.vx = (exitT.to.x - exitT.from.x) / 0.45; C.vz = (exitT.to.z - exitT.from.z) / 0.45;
+      C.x = G.lerp(exitT.from.x, exitT.to.x, e); C.z = G.lerp(exitT.from.z, exitT.to.z, e);
+      C.y = G.damp(C.y, G.W.groundHeight(C.x, C.z), 10, dt);
+      C.animate(dt); C.sync();
+      if (k >= 1) { exitT = null; C.vx *= 0.3; C.vz *= 0.3; }
+      return false;
+    }
+    if (enterT) {
+      const v = enterT.v; enterT.t += dt;
+      const door = doorPoint(v, enterT.side), dx = door.x - C.x, dz = door.z - C.z, d = Math.hypot(dx, dz);
+      if (d > 0.4 && enterT.t < 1.8 && !enterT.at) C.control(dx / d, dz / d, d > 3, false, false);
+      else {
+        enterT.at += dt; C.control(0, 0);
+        C.heading += G.wrapAngle(v.heading + Math.PI / 2 * -enterT.side - C.heading) * (1 - Math.exp(-14 * dt));
+        if (enterT.at > 0.28) { finishEnter(v); return false; }
+      }
+      return true;
+    }
+    let f = (K.KeyW || K.ArrowUp ? 1 : 0) - (K.KeyS || K.ArrowDown ? 1 : 0);
+    let r = (K.KeyD || K.ArrowRight ? 1 : 0) - (K.KeyA || K.ArrowLeft ? 1 : 0);
+    if (!f && !r) { f = I.state.throttle - I.state.brake; r = -I.state.steer; if (Math.abs(r) < 0.15) r = 0; } // gamepad / touch
+    const fx = Math.sin(footYaw), fz = Math.cos(footYaw);
+    let mx = fx * f - fz * r, mz = fz * f + fx * r;
+    const l = Math.hypot(mx, mz); if (l > 1) { mx /= l; mz /= l; }
+    C.control(mx, mz, K.ShiftLeft || K.ShiftRight, I.consume('Space'), K.ControlLeft || K.AltLeft || K.CapsLock);
+    return true;
+  }
+  // mouse drag (any button) on the 3D view orbits the on-foot camera
+  window.addEventListener('pointerdown', (e) => { if (e.target && e.target.tagName === 'CANVAS' && e.target.id !== 'minimap') dragging = true; });
+  window.addEventListener('pointerup', () => { dragging = false; });
+  window.addEventListener('pointermove', (e) => {
+    if (!dragging || !Gm.onFoot) return;
+    footYaw -= (e.movementX || 0) * 0.006;
+    footPitch = G.clamp(footPitch + (e.movementY || 0) * 0.004, -0.25, 1.15);
+    lastMouse = Gm.time;
+  });
+  window.addEventListener('contextmenu', (e) => { if (Gm.onFoot && e.target && e.target.tagName === 'CANVAS' && e.target.id !== 'bigmapCanvas') e.preventDefault(); });
 
   // ---------------- State changes ----------------
   Gm.toTitle = function () {
@@ -95,6 +260,7 @@ G.Game = (function () {
   Gm.resume = function () { Gm.simPaused = false; };
   Gm.openGarage = function () {
     if (G.Events.active) { G.UI.toast('Không thể vào gara khi đang trong sự kiện'); return; }
+    if (Gm.onFoot) { G.UI.toast('Lên xe [F] để vào gara'); return; }
     if (G.Police.active) { G.UI.toast('🚨 Cắt đuôi cảnh sát trước!'); return; }
     if (Gm.player.speed > 6) { G.UI.toast('Dừng xe lại để vào gara'); return; }
     Gm.garage = true; G.UI.openGarage();
@@ -102,7 +268,7 @@ G.Game = (function () {
   };
   Gm.closeGarage = function () {
     Gm.garage = false; G.UI.closeGarage();
-    if (Gm.player.spec.id !== G.save.selected) makePlayer(G.save.selected);
+    if (Gm.player.spec.id !== G.save.selected || Gm.player.jacked) makePlayer(G.save.selected);
     if (garageLight) garageLight.intensity = 0;
     G.UI.showScreen(Gm.state === 'play' ? 'game' : 'title');
     camYaw = Gm.player.heading;
@@ -173,6 +339,13 @@ G.Game = (function () {
     }
     if (G.UI.mapOpen) return;
     if (I.consume('KeyG')) Gm.openGarage();
+    // F (or gamepad Y) = get in / out of a car
+    if (I.consume('KeyF') || padY()) { I.consume('KeyC'); Gm.toggleVehicle(); }
+    if (Gm.onFoot) {
+      I.consume('KeyC'); I.consume('KeyH'); I.consume('KeyE');
+      if (I.consume('KeyR')) resetPlayer();
+      return;
+    }
     if (I.consume('KeyC')) { Gm.camMode = (Gm.camMode + 1) % 3; G.UI.toast(['Camera: Gần', 'Camera: Xa', 'Camera: Cản trước'][Gm.camMode], 1200); }
     if (I.consume('KeyR')) resetPlayer();
     if (I.consume('KeyH')) G.Audio.horn();
@@ -182,12 +355,91 @@ G.Game = (function () {
       if (m && !G.Events.active) { if (Gm.player.speed > 15) G.UI.toast('Giảm tốc để bắt đầu sự kiện'); else G.Events.start(m, Gm.player); }
     }
   }
+  let padYPrev = false;
+  function padY() {
+    const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+    const p = pads && Array.from(pads).find(Boolean);
+    const b = !!(p && p.buttons[3] && p.buttons[3].pressed), edge = b && !padYPrev;
+    padYPrev = b; return edge;
+  }
   function resetPlayer() {
+    if (Gm.onFoot) {
+      // on foot: step onto the pavement beside the nearest road
+      const C = Gm.char, p = G.W.nearestRoadPose(C.x, C.z, C.heading), s = doorPoint({ x: p.x, z: p.z, heading: p.heading, W: 1 }, 1, 6);
+      enterT = exitT = null;
+      if (freeSpot(s.x, s.z)) C.setPose(s.x, s.z, p.heading); else C.setPose(p.x, p.z, p.heading);
+      footYaw = C.heading; footPivot.set(C.x, C.y + 1.55, C.z); return;
+    }
     const P = Gm.player, p = G.W.nearestRoadPose(P.x, P.z, P.heading);
     P.setPose(p.x, p.z, p.heading); camYaw = p.heading;
   }
 
+  // parked / stolen cars keep their physics (coast, get pushed) and stay collidable
+  function updateParked(dt, F) {
+    for (let i = Gm.parked.length - 1; i >= 0; i--) {
+      const v = Gm.parked[i];
+      if (Math.abs(v.x - F.x) > 400 || Math.abs(v.z - F.z) > 400) continue;
+      parkInput(v); v.update(dt);
+      if (v.surface === 'water') { scene.remove(v.mesh); Gm.parked.splice(i, 1); continue; }
+      v.syncMesh(dt);
+    }
+  }
+  function nearBodies(F, list) {
+    for (const t of G.Traffic.cars) if (Math.abs(t.x - F.x) < 80 && Math.abs(t.z - F.z) < 80) list.push(t);
+    return list;
+  }
+  function updateNpcs(dt) {
+    // car-jacked drivers run away from the player, then fade out
+    const F = Gm.focus();
+    for (let i = npcs.length - 1; i >= 0; i--) {
+      const n = npcs[i]; n.life -= dt;
+      const dx = n.x - F.x, dz = n.z - F.z, d = Math.hypot(dx, dz) || 1;
+      n.control(dx / d, dz / d, true, false, false);
+      n.update(dt);
+      if (n.life < 0.6) n.mesh.scale.setScalar(Math.max(0.01, n.life / 0.6));
+      if (n.life <= 0) { n.dispose(); npcs.splice(i, 1); }
+    }
+  }
+  const footHud = { speed: 0, fwdSpeed: 0, gear: 0, rpm: 800, nitro: 0, perf: { nitroCap: 1 }, input: { throttle: 0 } };
+  function simulateFoot(dt) {
+    const C = Gm.char, P = Gm.player;
+    const ctl = footControl(dt);
+    if (!Gm.onFoot) return; // just got into a car
+    if (ctl) C.update(dt);
+    parkInput(P); P.update(dt);
+    if (P.surface === 'water') { const p = G.W.nearestRoadPose(P.x, P.z, P.heading); P.setPose(p.x, p.z, p.heading); }
+    P.syncMesh(dt);
+    updateParked(dt, C);
+    updateNpcs(dt);
+    const cops = G.Police.cops, racers = G.Events.racers(), cars = [P, ...Gm.parked];
+    G.Traffic.update(dt, Gm.time, C, [C, ...cars, ...cops, ...racers]);
+    G.Events.update(dt, C, Gm.time); G.Events.nearMarker = null; // events need a car
+    const pr = G.Police.update(dt, C);
+    if (pr && !G.Events.onPursuitEnd(pr)) {
+      if (pr.escaped) { const r = pr.level * 600; G.save.cash += r; G.save.stats.escapes++; G.Audio.cash(); G.UI.popup('ĐÃ CẮT ĐUÔI! +$' + r, '#28ff8a'); }
+      else { const fine = Math.min(5000, Math.round(G.save.cash * 0.1)); G.save.cash -= fine; flash = 0.8; G.Audio.fail(); G.UI.toast('🚔 BỊ BẮT! Nộp phạt ' + G.fmtMoney(fine), 3500); }
+      G.persist();
+    }
+    // cars vs cars, then the character vs every car around
+    const bodies = nearBodies(C, [...cars, ...cops, ...racers]);
+    for (const c of cops) c.isCop = true;
+    G.collideBodies(bodies);
+    G.Traffic.postCollide();
+    C.collideCars(bodies);
+    if (C.hitBy) { shake = Math.max(shake, 0.5); G.Audio.crash(10); C.hitBy = null; }
+    C.sync();
+    G.Audio.update(P, 0, true);
+    footHud.speed = footHud.fwdSpeed = C.speed; footHud.nitro = P.nitro; footHud.perf = P.perf;
+    G.UI.hud(footHud, G.save.hour);
+    G.UI.minimap(C, cops, racers, G.Traffic.cars);
+    // context hint: what F does here
+    const tg = !enterT && !exitT && C.knockT <= 0 ? enterTarget() : null;
+    hint(tg ? (tg.t ? '[F] Cướp xe' : '[F] Lên xe') : '');
+    saveT += dt; if (saveT > 8) { saveT = 0; G.persist(); }
+  }
+
   function simulate(dt) {
+    if (Gm.onFoot) { simulateFoot(dt); return; }
     const P = Gm.player, inp = G.input.state;
     Object.assign(P.input, { throttle: inp.throttle, brake: inp.brake, steer: inp.steer, handbrake: inp.handbrake, nitro: inp.nitro });
     if (G.Events.freeze) { P.input.throttle = 0; P.input.nitro = false; }
@@ -197,7 +449,9 @@ G.Game = (function () {
       resetPlayer(); flash = 0.3;
     }
     const cops = G.Police.cops, racers = G.Events.racers();
-    G.Traffic.update(dt, Gm.time, P, [P, ...cops, ...racers]);
+    G.Traffic.update(dt, Gm.time, P, [P, ...Gm.parked, ...cops, ...racers]);
+    updateParked(dt, P);
+    if (npcs.length) updateNpcs(dt);
     G.Events.update(dt, P, Gm.time);
     if (G.Events.freeze) { P.vx = P.vz = 0; }
     const pr = G.Police.update(dt, P);
@@ -213,8 +467,7 @@ G.Game = (function () {
       for (const t of G.Traffic.cars) if (t.police && Math.hypot(t.x - P.x, t.z - P.z) < 55) { G.Police.addHeat(1); G.UI.toast('🚨 Cảnh sát phát hiện bạn chạy quá tốc độ!'); break; }
     }
     // dynamic collisions
-    const bodies = [P, ...cops, ...racers];
-    for (const t of G.Traffic.cars) if (Math.abs(t.x - P.x) < 80 && Math.abs(t.z - P.z) < 80) bodies.push(t);
+    const bodies = nearBodies(P, [P, ...Gm.parked, ...cops, ...racers]);
     for (const c of cops) c.isCop = true;
     G.collideBodies(bodies);
     G.Traffic.postCollide();
@@ -234,7 +487,36 @@ G.Game = (function () {
   }
 
   // ---------------- Cameras ----------------
+  // third-person over-the-shoulder camera for walking around
+  function footCamera(dt) {
+    const C = Gm.char, K = G.input.keys;
+    if (K.KeyQ) { footYaw += 2.2 * dt; lastMouse = Gm.time; }
+    if (K.KeyE) { footYaw -= 2.2 * dt; lastMouse = Gm.time; }
+    // drift back behind the character while it moves and the camera isn't being steered
+    const dh = G.wrapAngle(C.heading - footYaw);
+    if (Gm.time - lastMouse > 2 && C.speed > 1.5 && !exitT && Math.abs(dh) < 1.1) footYaw += dh * (1 - Math.exp(-1.2 * dt));
+    footPivot.x = G.damp(footPivot.x, C.x, 14, dt); footPivot.z = G.damp(footPivot.z, C.z, 14, dt);
+    footPivot.y = G.damp(footPivot.y, C.y + 1.55, 8, dt);
+    const fx = Math.sin(footYaw), fz = Math.cos(footYaw), sx = -fz, sz = fx; // forward / right (screen)
+    const dist = 3.9 + footPitch * 1.2, sh = 0.55, back = dist * Math.cos(footPitch);
+    let x = footPivot.x - fx * back + sx * sh, z = footPivot.z - fz * back + sz * sh;
+    // pull in toward the character when a building / tree is in the way
+    for (let k = 1; ; k -= 0.1) {
+      if (k < 0.15) { x = footPivot.x + sx * 0.15; z = footPivot.z + sz * 0.15; break; }
+      const tx = footPivot.x + (x - footPivot.x) * k, tz = footPivot.z + (z - footPivot.z) * k;
+      if (!G.W.pointBlocked(tx, tz)) { x = tx; z = tz; break; }
+    }
+    const y = Math.max(footPivot.y + Math.sin(footPitch) * dist, G.W.groundHeight(x, z) + 0.4);
+    camera.position.set(x, y, z);
+    if (shake > 0) { camera.position.x += (Math.random() - 0.5) * shake * 0.4; camera.position.y += (Math.random() - 0.5) * shake * 0.3; shake = Math.max(0, shake - dt * 2.5); }
+    lookTmp.set(footPivot.x + fx * 6 + sx * sh * 0.6, footPivot.y - 0.1 - footPitch * 1.2, footPivot.z + fz * 6 + sz * sh * 0.6);
+    camera.lookAt(lookTmp);
+    fov = G.damp(fov, 58 + G.clamp((C.speed - 4.5) * 1.5, 0, 6), 4, dt);
+    if (Math.abs(camera.fov - fov) > 0.05) { camera.fov = fov; camera.updateProjectionMatrix(); }
+    camYaw = footYaw; camY = y;
+  }
   function chaseCamera(dt) {
+    if (Gm.onFoot && Gm.char) { footCamera(dt); return; }
     const P = Gm.player;
     const fx = Math.sin(P.heading), fz = Math.cos(P.heading);
     const reversing = P.fwdSpeed < -2;

@@ -8,6 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Chakra+Petch:wght@500;600;700&display=swap&subset=vietnamese" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/auth.css">
 </head>
 <body>
 <canvas id="game"></canvas>
@@ -24,19 +25,33 @@
   <div class="title-inner">
     <div class="logo big">SPEED RUSH<span>OPEN CITY</span></div>
     <div class="tagline">Thế giới mở • Đua đường phố • Truy đuổi • Drift • Stunt</div>
+    <div class="title-user hidden" id="titleUser"></div>
     <div class="menu">
+      <button class="btn primary hidden" id="btnContinue">▶ TIẾP TỤC<small id="continueInfo"></small></button>
       <button class="btn primary" id="btnPlay">▶ VÀO THÀNH PHỐ</button>
-      <button class="btn" id="btnTitleGarage">🔧 GARA SIÊU XE</button>
+      <button class="btn" id="btnTitleGarage">🚗 ĐỔI XE / GARA</button>
       <button class="btn" id="btnTitleSettings">⚙ CÀI ĐẶT</button>
+      <div class="menu-row">
+        <button class="btn sub hidden" id="btnTitleLogout">👤 ĐĂNG XUẤT / TÀI KHOẢN</button>
+        <button class="btn sub hidden" id="btnNewGame">🆕 CHƠI LẠI TỪ ĐẦU</button>
+        <button class="btn sub danger" id="btnQuit">🚪 THOÁT GAME</button>
+      </div>
     </div>
     <div class="title-stats" id="titleStats"></div>
     <div class="controls-card">
       <div><b>W/↑</b> Ga</div><div><b>S/↓</b> Phanh / Lùi</div><div><b>A D/← →</b> Lái</div>
       <div><b>SPACE</b> Phanh tay (drift)</div><div><b>SHIFT</b> Nitro</div><div><b>C</b> Đổi camera</div>
       <div><b>E</b> Bắt đầu sự kiện</div><div><b>G</b> Gara</div><div><b>M</b> Bản đồ</div>
+      <div><b>F</b> Xuống / lên xe</div><div><b>V / TAB</b> Đổi xe nhanh</div>
       <div><b>R</b> Đặt lại xe</div><div><b>H</b> Còi</div><div><b>T</b> +1 giờ</div><div><b>ESC</b> Tạm dừng</div>
       <div class="pad-hint">🎮 Hỗ trợ tay cầm: RT ga • LT phanh • B phanh tay • RB nitro • A sự kiện</div>
     </div>
+  </div>
+  <div class="bye hidden" id="bye">
+    <div class="logo">SPEED RUSH<span>OPEN CITY</span></div>
+    <div class="bye-msg">Hẹn gặp lại tay đua! 🏁</div>
+    <div class="bye-sub">Tiến trình đã được lưu. Bạn có thể đóng tab này.</div>
+    <button class="btn primary" id="btnByeBack">▶ QUAY LẠI GAME</button>
   </div>
 </div>
 
@@ -46,8 +61,17 @@
     <div class="pill cash">💰 <span id="hudCash">$0</span></div>
     <div class="pill small">⭐ <span id="hudCoins">0/0</span></div>
     <div class="pill small">🕒 <span id="hudClock">12:00</span></div>
+    <div class="pill small user hidden" id="hudUser"></div>
   </div>
   <div class="hud-tr">
+    <div class="qbar" id="qbar">
+      <button class="qb" data-act="foot" id="qbFoot" tabindex="-1" title="Xuống / lên xe (F)"><i>🚶</i><span id="qbFootTxt">XUỐNG XE</span><kbd>F</kbd></button>
+      <button class="qb" data-act="switch" tabindex="-1" title="Đổi xe nhanh (V / Tab)"><i>🚗</i><span>ĐỔI XE</span><kbd>V</kbd></button>
+      <button class="qb" data-act="garage" tabindex="-1" title="Gara (G)"><i>🔧</i><span>GARA</span><kbd>G</kbd></button>
+      <button class="qb" data-act="map" tabindex="-1" title="Bản đồ (M)"><i>🗺</i><span>BẢN ĐỒ</span><kbd>M</kbd></button>
+      <button class="qb" data-act="menu" tabindex="-1" title="Tạm dừng / menu (Esc)"><i>⏸</i><span>MENU</span><kbd>ESC</kbd></button>
+      <button class="qb exit" data-act="exit" tabindex="-1" title="Thoát ra màn hình chính"><i>⌂</i><span>THOÁT</span></button>
+    </div>
     <div id="wanted" class="wanted hidden">
       <div class="stars" id="wantedStars"></div>
       <div class="wanted-bar"><div id="escapeFill"></div></div>
@@ -74,7 +98,7 @@
   <div id="prompt" class="prompt hidden"></div>
   <div id="popups" class="popups"></div>
   <div id="countdown" class="countdown"></div>
-  <div class="hint" id="hint">E: sự kiện • G: gara • M: bản đồ • C: camera • R: đặt lại • ESC: menu</div>
+  <div class="hint" id="hint">F: xuống/lên xe • V: đổi xe • E: sự kiện • G: gara • M: bản đồ • C: camera • R: đặt lại • ESC: menu</div>
 </div>
 
 <!-- TOUCH CONTROLS -->
@@ -84,7 +108,7 @@
     <div class="tbtn small" data-k="nitro">N₂O</div><div class="tbtn small" data-k="hand">⛔</div>
     <div class="tbtn" data-k="brake">▼</div><div class="tbtn gas" data-k="gas">▲</div>
   </div>
-  <div class="t-top"><div class="tbtn mini" data-press="KeyE">E</div><div class="tbtn mini" data-press="KeyC">CAM</div><div class="tbtn mini" data-press="KeyM">MAP</div><div class="tbtn mini" data-press="KeyG">GARA</div><div class="tbtn mini" data-press="Escape">II</div></div>
+  <div class="t-top"><div class="tbtn mini" data-press="KeyE">E</div><div class="tbtn mini" data-press="KeyC">CAM</div><div class="tbtn mini" data-press="KeyM">MAP</div><div class="tbtn mini" data-press="KeyG">GARA</div><div class="tbtn mini" data-act="foot" id="tFoot">🚶 XE</div><div class="tbtn mini" data-act="switch">🚗 ĐỔI</div><div class="tbtn mini" data-press="Escape">II</div></div>
 </div>
 
 <!-- RESULTS -->
@@ -94,7 +118,10 @@
     <div class="r-title" id="rTitle"></div>
     <div class="r-lines" id="rLines"></div>
     <div class="r-reward" id="rReward"></div>
-    <button class="btn primary" id="btnResultsOk">TIẾP TỤC</button>
+    <div class="r-actions">
+      <button class="btn" id="btnResultsRetry">🔁 ĐUA LẠI <kbd>R</kbd></button>
+      <button class="btn primary" id="btnResultsOk">🌆 VỀ THẾ GIỚI MỞ <kbd>ENTER</kbd></button>
+    </div>
   </div>
 </div>
 
@@ -105,9 +132,14 @@
     <div class="menu">
       <button class="btn primary" id="btnResume">▶ TIẾP TỤC</button>
       <button class="btn" id="btnAbort">✖ HUỶ SỰ KIỆN</button>
-      <button class="btn" id="btnPauseGarage">🔧 GARA</button>
-      <button class="btn" id="btnPauseMap">🗺 BẢN ĐỒ</button>
-      <button class="btn" id="btnPauseTitle">⌂ MÀN HÌNH CHÍNH</button>
+      <div class="menu-grid">
+        <button class="btn" id="btnPauseSwitch">🚗 ĐỔI XE</button>
+        <button class="btn hidden" id="btnPauseFoot">🚶 XUỐNG XE</button>
+        <button class="btn" id="btnPauseGarage">🔧 GARA</button>
+        <button class="btn" id="btnPauseMap">🗺 BẢN ĐỒ</button>
+      </div>
+      <button class="btn" id="btnPauseTitle">⌂ THOÁT RA MÀN HÌNH CHÍNH</button>
+      <button class="btn sub hidden" id="btnPauseLogout">👤 ĐĂNG XUẤT / ĐỔI TÀI KHOẢN</button>
     </div>
     <div class="settings" id="settingsBox">
       <label>Đồ hoạ
@@ -120,6 +152,30 @@
       <label>Đơn vị <select id="setUnits"><option value="kmh">km/h</option><option value="mph">mph</option></select></label>
     </div>
     <div class="title-stats" id="pauseStats"></div>
+  </div>
+</div>
+
+<!-- QUICK CAR SWITCHER -->
+<div id="carSwitch" class="modal light hidden">
+  <div class="card cs-card">
+    <div class="cs-head"><div class="r-event">ĐỔI XE NHANH</div><div class="cs-count" id="csCount"></div></div>
+    <div class="cs-list" id="csList"></div>
+    <div class="cs-foot">
+      <span class="cs-tip">Nhấn <kbd>1</kbd>–<kbd>9</kbd> hoặc <kbd>←</kbd><kbd>→</kbd> + <kbd>ENTER</kbd> • chấm màu = đổi màu sơn</span>
+      <span><button class="btn" id="csGarage">🔧 MUA XE / GARA</button> <button class="btn" id="csClose">✖ ĐÓNG <kbd>ESC</kbd></button></span>
+    </div>
+  </div>
+</div>
+
+<!-- CONFIRM -->
+<div id="confirmBox" class="modal top hidden">
+  <div class="card">
+    <div class="r-event" id="cfTitle">XÁC NHẬN</div>
+    <div class="r-lines" id="cfMsg"></div>
+    <div class="r-actions">
+      <button class="btn" id="cfNo">HUỶ</button>
+      <button class="btn primary" id="cfYes">ĐỒNG Ý</button>
+    </div>
   </div>
 </div>
 
@@ -145,7 +201,10 @@
     <div class="g-upgrades" id="gUpgrades"></div>
     <button class="btn primary full" id="gAction"></button>
   </div>
-  <div class="g-top"><div class="pill cash">💰 <span id="gCash"></span></div><button class="btn" id="gClose">✖ ĐÓNG GARA</button></div>
+  <div class="g-top"><div class="pill small">🚗 <span id="gOwned"></span></div><div class="pill cash">💰 <span id="gCash"></span></div><button class="btn g-close" id="gClose">✖ ĐÓNG GARA <kbd>ESC</kbd></button></div>
+  <button class="g-arrow left" id="gPrev" title="Xe trước (←)">‹</button>
+  <button class="g-arrow right" id="gNext" title="Xe sau (→)">›</button>
+  <div class="g-hint">← → chọn xe • ESC / G đóng gara</div>
   <div class="g-strip" id="gStrip"></div>
 </div>
 
@@ -173,6 +232,9 @@
 <script src="js/audio.js"></script>
 <script src="js/traffic.js"></script>
 <script src="js/events.js"></script>
+<script src="js/character.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/admin.js"></script>
 <script src="js/ui.js"></script>
 <script src="js/main.js"></script>
 </body>

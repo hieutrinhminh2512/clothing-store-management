@@ -63,9 +63,12 @@ G.defaultSave = () => ({
   settings: { quality: 'high', volume: 0.7, timeScale: 1, units: 'kmh' },
   hour: 17.5,
 });
-G.loadSave = function () {
+// G.saveKey = where the active save lives. auth.js switches it per account
+// (G.SAVE_KEY + ':' + username); without a login it stays on the legacy key.
+G.saveKey = G.SAVE_KEY;
+G.loadSave = function (key) {
   let d = null;
-  try { d = JSON.parse(localStorage.getItem(G.SAVE_KEY)); } catch (e) { d = null; }
+  try { d = JSON.parse(localStorage.getItem(key || G.saveKey)); } catch (e) { d = null; }
   const def = G.defaultSave();
   if (!d || typeof d !== 'object') return def;
   // shallow-merge so saves from older versions get new fields
@@ -76,8 +79,10 @@ G.loadSave = function () {
 };
 G.save = G.loadSave();
 G.persist = function () {
-  try { localStorage.setItem(G.SAVE_KEY, JSON.stringify(G.save)); } catch (e) { /* private mode */ }
+  try { localStorage.setItem(G.saveKey, JSON.stringify(G.save)); } catch (e) { /* private mode */ }
 };
+// switch the active save slot (does not persist the previous one — caller does)
+G.setSaveKey = function (key) { G.saveKey = key || G.SAVE_KEY; G.save = G.loadSave(G.saveKey); return G.save; };
 G.upg = (carId) => {
   if (!G.save.upgrades[carId]) G.save.upgrades[carId] = { engine: 0, handling: 0, nitro: 0 };
   return G.save.upgrades[carId];
