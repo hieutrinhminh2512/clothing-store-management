@@ -370,7 +370,7 @@ G.W = (function () {
     const slabMat = new THREE.MeshStandardMaterial({ map: tConcrete, roughness: 0.9, color: G.col(0xd0ccc4) });
     slabMat.onBeforeCompile = worldUV(4);
     const q = new THREE.Quaternion(), v3 = new THREE.Vector3(), s3 = new THREE.Vector3();
-    const CH = 480; // chunk size for city props (4x4 blocks): culling wins vs. extra draw calls
+    const CH = 960; // chunk size for city props (8x8 blocks): measured best balance of culling vs. extra draw calls (480 was slower than no chunking)
     chunked(scene, slabGeo, slabMat, slabs, CH, (s, m4) => m4.compose(v3.set(s.x, 0, s.z), q.identity(), s3.set(s.s, 1, s.s)), { receive: true });
     const parkMat = new THREE.MeshStandardMaterial({ map: tGrass, color: G.col(0xa8d890), roughness: 1, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
     chunked(scene, new THREE.BoxGeometry(1, 0.06, 1), parkMat, parkSlabs, Infinity, (s, m4) => m4.compose(v3.set(s.x, 0.0, s.z), q.identity(), s3.set(s.s, 1, s.s)), { receive: true });
@@ -635,7 +635,7 @@ G.W = (function () {
     const poolGeo = new THREE.PlaneGeometry(12, 12); poolGeo.rotateX(-Math.PI / 2);
     const q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), one = new THREE.Vector3(1, 1, 1), v = new THREE.Vector3();
     const lampPose = (l, m4) => m4.compose(v.set(l.x, 0, l.z), q.setFromAxisAngle(up, Math.atan2(l.dx, l.dz)), one);
-    const CH = 480, FAR = 900;
+    const CH = 960, FAR = 900;
     chunked(scene, poleGeo, metal, L, CH, lampPose, { cast: true, far: FAR });
     chunked(scene, armGeo, metal, L, CH, lampPose, { far: FAR });
     chunked(scene, headGeo, bulbMat, L, CH, lampPose, { far: FAR * 1.4 });

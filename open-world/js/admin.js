@@ -365,7 +365,8 @@ G.Admin = (function () {
       fab = document.createElement('button'); fab.type = 'button'; fab.className = 'adm-fab hidden'; fab.textContent = '🛡️ ADMIN'; fab.title = 'Bảng quản trị (F2 hoặc `)';
       fab.onclick = () => { fab.blur(); AD.toggle(); }; document.body.appendChild(fab);
     }
-    const showFab = admin && G.Game && G.Game.state === 'play' && !(G.Auth.visible && G.Auth.visible());
+    // hidden while a menu covers the screen (pause, garage, car switcher, results) — F2 still works
+    const showFab = admin && G.Game && G.Game.state === 'play' && !G.Game.paused && !G.Game.simPaused && !G.Game.garage && !(G.Auth.visible && G.Auth.visible());
     if (fab.classList.contains('hidden') === showFab) fab.classList.toggle('hidden', !showFab);
     if (AD.freeze) G.save.settings.timeScale = 0;
     if (AD.nitro && P()) P().nitro = P().perf.nitroCap;

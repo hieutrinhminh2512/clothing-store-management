@@ -185,9 +185,10 @@ G.CarModels = (function () {
     });
     ud.head = m.head;
     // tail lights: full-width bar for sporty cars, twin units otherwise
+    // (the body's bevel pushes the rear skin ~0.07 m past -h, so the lights sit just outside it)
     const ty = b.tail - 0.1;
-    if (b.style === 'hyper' || b.style === 'gt' || b.style === 'sedan') box(W * 0.86, 0.06, 0.05, tail, 0, ty, -h + 0.05, g);
-    [-1, 1].forEach((sd) => box(W * 0.2, 0.1, 0.06, tail, sd * W * 0.36, ty - 0.03, -h + 0.06, g));
+    if (b.style === 'hyper' || b.style === 'gt' || b.style === 'sedan') box(W * 0.86, 0.06, 0.08, tail, 0, ty, -h - 0.06, g);
+    [-1, 1].forEach((sd) => box(W * 0.2, 0.1, 0.08, tail, sd * W * 0.36, ty - 0.03, -h - 0.065, g));
     // plate + exhausts
     box(0.52, 0.12, 0.02, m.plate, 0, b.clr + 0.4, -h + 0.02, g);
     const exN = b.style === 'muscle' ? [-0.55, 0.55] : (b.style === 'hyper' ? [-0.12, 0.12] : [-0.5, 0.5]);

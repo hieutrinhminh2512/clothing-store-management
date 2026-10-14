@@ -9,8 +9,17 @@ Bản thế giới mở nằm trong thư mục `open-world/`. **Mở `open-world
 - **8 sự kiện**: 2 đua đường phố, đua vòng cao tốc (AI), bẫy tốc độ, drift zone, time attack bờ biển, nhảy xa, truy nã. **108 đồng xu** sưu tầm.
 - **Đồ hoạ**: HDR + bloom + ACES, ngày/đêm động (bình minh, hoàng hôn, sao, mây), đèn đường, cửa sổ sáng đèn ban đêm, biển gợn sóng, khói lốp, vệt phanh, tia lửa. 4 mức đồ hoạ (tự chọn theo GPU).
 - Âm thanh tổng hợp (động cơ theo vòng tua, lốp rít, gió, còi hú), minimap xoay + bản đồ lớn có GPS, hỗ trợ tay cầm & màn hình cảm ứng, lưu tiến độ tự động.
+- **Đi bộ kiểu GTA**: xuống xe, đi/chạy/nhảy, lên lại xe hoặc **cướp xe giao thông**; cảnh sát vẫn truy đuổi khi đi bộ.
+- **Tài khoản**: đăng nhập / đăng ký / chơi khách, mỗi tài khoản có tiến trình riêng. Tài khoản **admin** có bảng quản trị toàn quyền.
+- Thanh thao tác nhanh trên HUD (xuống xe, đổi xe, gara, bản đồ, menu, thoát), bảng **đổi xe nhanh**, menu tạm dừng có thoát ra màn hình chính.
 
-**Phím**: W/S ga-phanh • A/D lái • Space phanh tay • Shift nitro • E sự kiện • G gara • M bản đồ • C camera • R đặt lại xe • H còi • T +1 giờ • Esc menu
+**Phím lái xe**: W/S ga-phanh • A/D lái • Space phanh tay • Shift nitro • E sự kiện • G gara • M bản đồ • C camera • R đặt lại xe • H còi • T +1 giờ • Esc menu
+
+**Phím mới**: F xuống / lên xe (gần xe giao thông = cướp xe) • V hoặc Tab đổi xe nhanh (phím số 1–9 để chọn) • Khi đi bộ: WASD đi, Shift chạy, Ctrl/Alt đi chậm, Space nhảy, kéo chuột hoặc Q/E để xoay camera • R ở màn kết quả = đua lại
+
+**Tài khoản admin mặc định**: `admin` / `SpeedRush@2026`. Hãy đổi mật khẩu ngay trong bảng admin (F2 hoặc phím `` ` `` › TÀI KHOẢN). Bảng admin có: tiền, mở khoá xe, nâng cấp tối đa, bất tử, nitro vô hạn, hệ số tốc độ, cảnh sát, giờ trong ngày, dịch chuyển, lấy xe bất kỳ, mật độ giao thông, chất lượng đồ hoạ, overlay FPS, quản lý tài khoản.
+
+> Đăng nhập chỉ chạy phía trình duyệt (lưu trong localStorage) nên **không phải bảo mật thật**: đủ để tách tiến trình giữa các người chơi trên cùng một máy, không dùng để bảo vệ dữ liệu.
 
 ---
 
