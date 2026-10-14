@@ -758,7 +758,7 @@ function buildHighwayLaneMarkings(S, hw){
 function buildOverheadMonorail(S){
   // Elevated railway overpass running parallel above the highway with glowing red & cyan neon rails
   const railH = 14;
-  const railOffset = -18; // on the right side of the road
+  const railOffset = -22; // safely off the right shoulder of the road
 
   for(let i=0; i<S; i+=8){
     const pt = trackCurve.getPoint(i/S);
@@ -861,13 +861,13 @@ function buildImage3Scenery(){
   // 2. Police Cruiser with Flashing Blue & Red Siren Lights (Image 3 left shoulder!)
   buildPoliceCruiserOnShoulder();
 
-  // 3. Street Lamps casting warm light on highway
+  // 3. Street Lamps casting warm light on highway (set comfortably outside 16m road width)
   for(let i=0; i<trackCache.length; i+=10){
     const pt = trackCache[i];
     const tg = trackCurve.getTangent(pt.t).normalize();
     const norm = new THREE.Vector3().crossVectors(tg, new THREE.Vector3(0,1,0)).normalize();
-    createHighwayLamp(pt.x + norm.x * 18, pt.z + norm.z * 18);
-    createHighwayLamp(pt.x - norm.x * 18, pt.z - norm.z * 18);
+    createHighwayLamp(pt.x + norm.x * 22, pt.z + norm.z * 22);
+    createHighwayLamp(pt.x - norm.x * 22, pt.z - norm.z * 22);
   }
 }
 

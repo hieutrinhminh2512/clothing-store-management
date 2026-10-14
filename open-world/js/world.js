@@ -686,20 +686,27 @@ G.W = (function () {
   // ---------- Street lamps (instanced) + light pools ----------
   function buildLamps(scene) {
     const L = [];
-    const add = (x, z, dx, dz) => L.push({ x, z, dx, dz });
+    const add = (x, z, dx, dz) => {
+      // Never spawn lamp poles on roads, intersections, or water
+      if (W.onRoad(x, z, 0.6) || W.isWater(x, z)) return;
+      L.push({ x, z, dx, dz });
+    };
     for (const c of lines) {
-      for (let j = 0; j < N; j++) for (let s = 20; s < P - 15; s += 40) {
-        const z = lines[j] + s;
-        add(c - HR - 1.2, z, 1, 0); add(c + HR + 1.2, z + 20, -1, 0);
-        add(z, c - HR - 1.2, 0, 1); add(z + 20, c + HR + 1.2, 0, -1);
+      for (let j = 0; j < N; j++) {
+        // Place along mid-blocks between intersections safely on the sidewalk
+        for (let s = 25; s <= 95; s += 35) {
+          const z = lines[j] + s;
+          add(c - HR - 2.0, z, 1, 0); add(c + HR + 2.0, z + 15, -1, 0);
+          add(z, c - HR - 2.0, 0, 1); add(z + 15, c + HR + 2.0, 0, -1);
+        }
       }
     }
-    // ring lamps (inner edge)
+    // ring lamps (inner edge sidewalk)
     for (let i = 0; i < W.ring.length; i += 12) {
       const p = W.ring[i], n = normalAt(W.ring, i);
-      add(p.x - n.x * (RW / 2 + 1.5), p.y - n.y * (RW / 2 + 1.5), n.x, n.y);
+      add(p.x - n.x * (RW / 2 + 2.5), p.y - n.y * (RW / 2 + 2.5), n.x, n.y);
     }
-    for (let x = -BEACH_X + 30; x < BEACH_X; x += 50) add(x, BEACH_Z - HR - 1.5, 0, 1);
+    for (let x = -BEACH_X + 30; x < BEACH_X; x += 50) add(x, BEACH_Z - HR - 2.0, 0, 1);
     const poleGeo = new THREE.CylinderGeometry(0.12, 0.2, 9, 6); poleGeo.translate(0, 4.5, 0);
     const armGeo = new THREE.BoxGeometry(0.16, 0.16, 3); armGeo.translate(0, 9, 1.4);
     const headGeo = new THREE.BoxGeometry(0.7, 0.18, 1.2); headGeo.translate(0, 8.9, 2.8);
@@ -721,10 +728,15 @@ G.W = (function () {
   // ---------- Traffic lights ----------
   function buildSignals(scene) {
     const S = [];
+    const tryAddSignal = (i, j, sx, sz) => {
+      if (W.onRoad(sx, sz, 0.5) || W.isWater(sx, sz)) return;
+      S.push({ i, j, x: sx, z: sz });
+    };
     for (let i = 0; i <= N; i++) for (let j = 0; j <= N; j++) {
       const x = lines[i], z = lines[j];
-      // two poles on opposite corners; each has a head for each axis
-      S.push({ i, j, x: x - HR - 1, z: z - HR - 1 }, { i, j, x: x + HR + 1, z: z + HR + 1 });
+      // two poles on opposite corners set back on sidewalk so cars never clip them
+      tryAddSignal(i, j, x - HR - 2.0, z - HR - 2.0);
+      tryAddSignal(i, j, x + HR + 2.0, z + HR + 2.0);
     }
     const n = S.length;
     const poleGeo = new THREE.CylinderGeometry(0.15, 0.18, 6, 6); poleGeo.translate(0, 3, 0);
