@@ -28,7 +28,7 @@ Bản thế giới mở nằm trong thư mục `open-world/`. **Mở `open-world
 
 **Phím lái xe**: W/S ga-phanh • A/D lái • Space phanh tay • Shift nitro • E sự kiện • G gara • M bản đồ • C camera • R đặt lại xe • H còi • T +1 giờ • Esc menu
 
-**Phím mới**: F xuống / lên xe (gần xe giao thông = cướp xe) • V hoặc Tab đổi xe nhanh (phím số 1–9 để chọn) • Khi đi bộ: WASD đi, Shift chạy, Ctrl/Alt đi chậm, Space nhảy, kéo chuột hoặc Q/E để xoay camera • R ở màn kết quả = đua lại
+**Phím mới**: F xuống / lên xe (gần xe giao thông = cướp xe) • V hoặc Tab đổi xe nhanh (phím số 1–9 để chọn) • Khi đi bộ: WASD đi, Shift chạy, Ctrl/Alt đi chậm, Space nhảy, **C** khi đang chạy = **trượt** (kiểu PUBG; đứng yên/đi bộ thì C = ngồi), kéo chuột hoặc Q/E để xoay camera • R ở màn kết quả = đua lại
 
 **Tài khoản admin mặc định**: `admin` / `SpeedRush@2026` (được tặng sẵn $10,000,000,000 một lần khi đăng nhập). Hãy đổi mật khẩu ngay trong bảng admin (F2 hoặc phím `` ` `` › TÀI KHOẢN). Bảng admin có: tiền, mở khoá xe, nâng cấp tối đa, bất tử, nitro vô hạn, hệ số tốc độ, cảnh sát, giờ trong ngày, dịch chuyển, lấy xe bất kỳ, mật độ giao thông, chất lượng đồ hoạ, overlay FPS, quản lý tài khoản.
 

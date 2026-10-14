@@ -398,7 +398,13 @@ G.Game = (function () {
       return;
     }
     if (Gm.onFoot) {
-      I.consume('KeyC'); I.consume('KeyH'); I.consume('KeyE');
+      // C: slide when running (PUBG), otherwise toggle crouch
+      if (I.consume('KeyC') && !enterT && !exitT && !(G.GTA && G.GTA.frozen)) {
+        const C = Gm.char;
+        if (C.slide()) G.Audio.slide();
+        else if (C.slideT <= 0 && C.grounded && C.knockT <= 0) C.crouch = !C.crouch;
+      }
+      I.consume('KeyH'); I.consume('KeyE');
       if (I.consume('KeyR')) resetPlayer();
       return;
     }
@@ -593,7 +599,7 @@ G.Game = (function () {
     const dh = G.wrapAngle(C.heading - footYaw);
     if (!aim && Gm.time - lastMouse > 2 && C.speed > 1.5 && !exitT && Math.abs(dh) < 1.1) footYaw += dh * (1 - Math.exp(-1.2 * dt));
     footPivot.x = G.damp(footPivot.x, C.x, 14, dt); footPivot.z = G.damp(footPivot.z, C.z, 14, dt);
-    footPivot.y = G.damp(footPivot.y, C.y + 1.55, 8, dt);
+    footPivot.y = G.damp(footPivot.y, C.y + 1.55 - C.crouchK * 0.75, 8, dt);
     const fx = Math.sin(footYaw), fz = Math.cos(footYaw), sx = -fz, sz = fx; // forward / right (screen)
     const dist = aim ? 2.3 : 3.9 + footPitch * 1.2, sh = aim ? 0.8 : 0.55, back = dist * Math.cos(footPitch);
     let x = footPivot.x - fx * back + sx * sh, z = footPivot.z - fz * back + sz * sh;

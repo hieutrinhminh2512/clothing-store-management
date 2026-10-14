@@ -111,6 +111,7 @@ G.Audio = (function () {
   A.punch = () => { burst(0.06, 700, 0.35); tone(120, 0.06, 0.2, 'sine', 60); };
   A.horn = () => { tone(415, 0.35, 0.2, 'square'); tone(520, 0.35, 0.16, 'square'); };
   A.splash = () => burst(1.0, 1400, 0.5);
+  A.slide = () => { burst(0.6, 900, 0.22, 'bandpass'); burst(0.15, 2500, 0.08, 'highpass'); };
   void music;
   return A;
 })();

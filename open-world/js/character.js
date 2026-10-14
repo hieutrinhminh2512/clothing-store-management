@@ -109,6 +109,7 @@ G.Character = (function () {
       this.x = 0; this.z = 0; this.y = 0; this.vx = 0; this.vz = 0; this.vy = 0;
       this.heading = 0; this.grounded = true; this.airT = 0; this.landT = 0; this.phase = 0; this.t = Math.random() * 10;
       this.radius = 0.35; this.mass = 80; this.knockT = 0; this.knockDir = 1;
+      this.slideT = 0; this.slideCD = 0; this.crouch = false; this.crouchK = 0; // PUBG-style slide / crouch
       this.move = { x: 0, z: 0, sprint: false, walk: false, jump: false };
       this.pose = {}; for (const k of POSE_KEYS) this.pose[k] = 0;
       this.mode = 'idle';
@@ -118,13 +119,23 @@ G.Character = (function () {
     get fwdSpeed() { return this.speed; }
     setPose(x, z, heading) {
       this.x = x; this.z = z; this.heading = heading || 0; this.y = G.W.groundHeight(x, z);
-      this.vx = this.vz = this.vy = 0; this.grounded = true; this.knockT = 0;
+      this.vx = this.vz = this.vy = 0; this.grounded = true; this.knockT = 0; this.slideT = 0; this.crouch = false;
       this.sync();
     }
     // world-space desired move direction (length 0..1)
     control(mx, mz, sprint, jump, walk) { Object.assign(this.move, { x: mx, z: mz, sprint: !!sprint, jump: !!jump, walk: !!walk }); }
+    // running + C: drop into a slide (keeps momentum, then bleeds it off). Returns true if it started.
+    slide() {
+      const sp = this.speed;
+      if (!this.grounded || this.knockT > 0 || this.slideT > 0 || this.slideCD > 0 || sp < 3.6) return false;
+      const v = Math.max(sp + 2.5, 8), dx = this.vx / sp, dz = this.vz / sp;
+      this.vx = dx * v; this.vz = dz * v; this.heading = Math.atan2(dx, dz);
+      this.slideT = 0.95; this.crouch = false;
+      return true;
+    }
     knock(vx, vz) {
       if (this.knockT > 0) return;
+      this.slideT = 0;
       this.knockT = 2.2; this.vx = vx; this.vz = vz; this.vy = 4; this.grounded = false;
       const f = Math.sin(this.heading) * vx + Math.cos(this.heading) * vz;
       this.knockDir = f >= 0 ? 1 : -1; // fall forward or backward
@@ -137,18 +148,33 @@ G.Character = (function () {
       const down = this.knockT > 0;
       if (down) this.knockT -= dt;
       // horizontal velocity
-      const maxV = m.sprint ? 7.4 : (m.walk ? 1.7 : 4.3);
-      let tvx = 0, tvz = 0;
-      if (ml > 0.05 && !down) { tvx = m.x / ml * maxV * ml; tvz = m.z / ml * maxV * ml; }
-      const acc = down ? 1.6 : (this.grounded ? (ml > 0.05 ? 9 : 12) : 1.5);
-      this.vx = G.damp(this.vx, tvx, acc, dt); this.vz = G.damp(this.vz, tvz, acc, dt);
+      this.slideCD = Math.max(0, this.slideCD - dt);
+      const sliding = this.slideT > 0;
+      if (sliding) {
+        // slide: friction bleeds speed, a little steering toward the stick
+        this.slideT -= dt;
+        const f = Math.exp(-1.5 * dt); this.vx *= f; this.vz *= f;
+        if (ml > 0.05) {
+          const cur = Math.atan2(this.vx, this.vz), turn = G.clamp(G.wrapAngle(Math.atan2(m.x, m.z) - cur), -1.1 * dt, 1.1 * dt), sp = this.speed;
+          this.vx = Math.sin(cur + turn) * sp; this.vz = Math.cos(cur + turn) * sp;
+        }
+        this.heading = Math.atan2(this.vx, this.vz);
+        if (this.slideT <= 0 || this.speed < 1.5 || !this.grounded || down) { this.slideT = 0; this.slideCD = 0.35; }
+      } else {
+        if (this.crouch && m.sprint && ml > 0.05) this.crouch = false; // sprinting stands you up
+        const maxV = m.sprint ? 7.4 : (m.walk ? 1.7 : (this.crouch ? 2.1 : 4.3));
+        let tvx = 0, tvz = 0;
+        if (ml > 0.05 && !down) { tvx = m.x / ml * maxV * ml; tvz = m.z / ml * maxV * ml; }
+        const acc = down ? 1.6 : (this.grounded ? (ml > 0.05 ? 9 : 12) : 1.5);
+        this.vx = G.damp(this.vx, tvx, acc, dt); this.vz = G.damp(this.vz, tvz, acc, dt);
+      }
       // turn toward movement
-      if (ml > 0.05 && !down) {
+      if (ml > 0.05 && !down && !sliding) {
         const want = Math.atan2(m.x, m.z);
         this.heading += G.wrapAngle(want - this.heading) * (1 - Math.exp(-(this.grounded ? 12 : 4) * dt));
       }
       // jump
-      if (m.jump && this.grounded && !down) { this.vy = 6.6; this.grounded = false; this.airT = 0; this.jumped = true; }
+      if (m.jump && this.grounded && !down) { this.vy = 6.6; this.grounded = false; this.airT = 0; this.jumped = true; this.crouch = false; this.slideT = 0; } // slide-jump keeps the speed
       m.jump = false;
       this.x += this.vx * dt; this.z += this.vz * dt;
       // ground / ramps
@@ -207,7 +233,19 @@ G.Character = (function () {
       const P = {}, sp = this.speed, J = this.J;
       for (const k of POSE_KEYS) P[k] = 0;
       let rate = 12;
-      if (this.knockT > 0) {
+      const low = this.knockT <= 0 && this.grounded ? (this.slideT > 0 ? 1 : this.crouch ? 0.6 : 0) : 0;
+      this.crouchK += (low - this.crouchK) * (1 - Math.exp(-12 * dt));
+      if (this.knockT <= 0 && this.grounded && this.slideT > 0) {
+        // slide: lead leg out straight, the other tucked under, leaning back, one hand trailing
+        this.mode = 'slide';
+        P.hipsY = -0.6; P.lean = -0.55;
+        P.hpL = -1.25; P.knL = 0.15; P.anL = 0.25;
+        P.hpR = -0.15; P.knR = 1.9;
+        P.shL = -0.6; P.shLz = 0.55; P.elL = -0.5;
+        P.shR = 0.5; P.shRz = 0.75; P.elR = -0.2;
+        P.head = 0.1;
+        rate = 18;
+      } else if (this.knockT > 0) {
         // knocked over: fall flat, then get back up
         this.mode = 'down';
         const k = this.knockT > 0.7 ? 1 : this.knockT / 0.7;
@@ -256,6 +294,13 @@ G.Character = (function () {
         // landing squash
         if (this.landT > 0) { const k = this.landT * 2; P.hipsY -= 0.22 * k; P.knL += 0.9 * k; P.knR += 0.9 * k; P.hpL -= 0.45 * k; P.hpR -= 0.45 * k; P.lean += 0.3 * k; }
         this.chestBreath = 1 + br * 0.015 * (0.4 + idle);
+        // crouch: bend hips + knees on top of the (slower) walk cycle
+        if (this.crouch) {
+          this.mode = sp < 0.3 ? 'crouch' : 'crouchwalk';
+          P.hipsY -= 0.36; P.lean += 0.5; P.head -= 0.15;
+          P.hpL -= 0.95; P.hpR -= 0.95; P.knL += 1.5; P.knR += 1.5; P.anL -= 0.1; P.anR -= 0.1;
+          P.elL -= 0.5; P.elR -= 0.5;
+        }
         rate = 14;
       }
       const k = 1 - Math.exp(-rate * dt);
