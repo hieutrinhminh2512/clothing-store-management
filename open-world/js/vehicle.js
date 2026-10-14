@@ -155,10 +155,10 @@ G.Vehicle = class Vehicle {
     let fx = Math.sin(this.heading), fz = Math.cos(this.heading);
     const ox = this.x, oz = this.z;
 
-    // nitro
+    // nitro (hồi nhanh gấp đôi)
     this.nitroOn = inp.nitro && this.nitro > 0.01 && inp.throttle > 0;
     if (this.nitroOn) this.nitro = Math.max(0, this.nitro - dt * 0.28);
-    else this.nitro = Math.min(p.nitroCap, this.nitro + dt * 0.022);
+    else this.nitro = Math.min(p.nitroCap, this.nitro + dt * 0.05);
 
     if (this.grounded) {
       let vF = this.vx * fx + this.vz * fz;

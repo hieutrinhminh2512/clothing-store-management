@@ -252,11 +252,11 @@ G.GTA = (function () {
 
   // ---------------- Vehicles: health, smoke, fire, explosion ----------------
   const wrecks = [];
-  function vehHealth(v) { if (v.health === undefined) v.health = 1000; return v.health; }
+  function vehHealth(v) { if (v.health === undefined) v.health = 2000; return v.health; }
   function hurtVehicle(v, n) {
     if (v.wrecked) return;
-    vehHealth(v); v.health -= n;
-    if (v.isSuspect) v.hp = Math.max(0, (v.hp || 100) - n / 10);
+    vehHealth(v); v.health -= n * 0.5; // Độ bền xe tăng gấp đôi (sát thương giảm nửa)
+    if (v.isSuspect) v.hp = Math.max(0, (v.hp || 100) - n / 20);
   }
   function blowVehicle(v) {
     if (v.wrecked) return;
@@ -277,16 +277,16 @@ G.GTA = (function () {
       return;
     }
     const fx = Math.sin(v.heading), fz = Math.cos(v.heading), hood = { x: v.x + fx * v.L * 0.35, y: v.y + 1, z: v.z + fz * v.L * 0.35 };
-    if (v.health < 400 && rnd() < dt * (v.health < 200 ? 18 : 8)) puff(hood, 1, v.health < 250);
-    if (v.health < 200) {
+    if (v.health < 800 && rnd() < dt * (v.health < 400 ? 18 : 8)) puff(hood, 1, v.health < 500);
+    if (v.health < 400) {
       v.fireT = (v.fireT || 0) + dt;
       if (rnd() < dt * 25) G.FX.spark.emit({ x: hood.x + (rnd() - 0.5), y: hood.y, z: hood.z + (rnd() - 0.5), vx: v.vx * 0.5, vy: 2 + rnd() * 2, vz: v.vz * 0.5, max: 0.4, s0: 0.5, s1: 0.1, r: 4, g: 1.5, b: 0.2, a: 1, drag: 1, grav: -2 });
       if (v === Gm().player && !Gm().onFoot && Math.floor(v.fireT * 2) !== Math.floor((v.fireT - dt) * 2)) G.UI.toast('🔥 XE ĐANG CHÁY — XUỐNG XE NGAY (F)!', 900);
-      if (v.fireT > 6 || v.health < -200) blowVehicle(v);
+      if (v.fireT > 6 || v.health < -400) blowVehicle(v);
     }
   }
   function hitTraffic(t, n, blast) {
-    t.hp = (t.hp === undefined ? 500 : t.hp) - n;
+    t.hp = (t.hp === undefined ? 1000 : t.hp) - n * 0.5;
     if (!t.wrecked) { t.wrecked = 3 + rnd() * 2; t.yaw = (rnd() - 0.5) * 0.6; }
     if (t.hp <= 0 && !t.blown) {
       t.blown = true;

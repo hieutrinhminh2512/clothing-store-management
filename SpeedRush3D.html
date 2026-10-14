@@ -991,7 +991,7 @@ function updateRacePhysics(dt){
     physics.nitro = Math.max(0, physics.nitro - 0.7 * k);
     if(heroCar.nitroFlame) heroCar.nitroFlame.visible = true;
   } else {
-    physics.nitro = Math.min(100, physics.nitro + 0.16 * k);
+    physics.nitro = Math.min(100, physics.nitro + 0.32 * k);
     if(heroCar.nitroFlame) heroCar.nitroFlame.visible = false;
   }
 
