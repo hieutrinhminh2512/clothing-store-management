@@ -24,6 +24,8 @@ G.UI = (function () {
     $('btnPauseSwitch').onclick = () => { G.Game.togglePause(false); U.openSwitcher(); };
     $('btnPauseFoot').onclick = () => { G.Game.togglePause(false); toggleFoot(); };
     $('btnPauseLogout').onclick = doLogout;
+    $('btnPauseMode').onclick = () => { G.Game.togglePause(false); G.Jobs.openMenu(); };
+    $('btnTitleMode').onclick = () => G.Jobs.openMenu();
     // title screen
     $('btnContinue').onclick = () => { if (G.Audio.init) G.Audio.init(); G.Game.play(); };
     $('btnTitleLogout').onclick = doLogout;
@@ -54,8 +56,7 @@ G.UI = (function () {
     $('setTime').onchange = (e) => { G.save.settings.timeScale = +e.target.value; G.persist(); };
     $('setUnits').onchange = (e) => { G.save.settings.units = e.target.value; G.persist(); };
     $('gClose').onclick = () => G.Game.closeGarage();
-    $('bigmapCanvas').addEventListener('click', onMapClick);
-    $('bigmapCanvas').addEventListener('contextmenu', (e) => { e.preventDefault(); U.gps = null; drawBigMap(); });
+    bmInit();
 
     // touch controls
     if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
@@ -144,6 +145,7 @@ G.UI = (function () {
     setText('mTitle', title); setText('mSub', sub); setText('mTimer', timer || '');
     setCls('mTimer', 'warn', !!warn);
   };
+  U.hideMission = () => setCls('mission', 'hidden', true);
   U.eventStart = function (def) { U.toast(def.icon + ' ' + def.name); promptId = null; $('prompt').classList.add('hidden'); U.closeSwitcher(true); };
   U.results = function (r) {
     setCls('mission', 'hidden', true);
@@ -216,7 +218,7 @@ G.UI = (function () {
       setCls('escapeFill', 'bust', busting);
       setText('wantedLabel', busting ? 'SẮP BỊ BẮT! THOÁT RA!' : (P.escape > 0.3 ? 'ĐANG CẮT ĐUÔI...' : 'ĐANG BỊ TRUY ĐUỔI'));
     }
-    if (!G.Events.active) setCls('mission', 'hidden', true);
+    if (!G.Events.active && !(G.Jobs && G.Jobs.mode) && !(G.Net && G.Net.connected)) setCls('mission', 'hidden', true);
     // event prompt: rebuilt only when the nearby marker changes
     const nm = G.Events.nearMarker && !G.Events.active && !(G.Game && G.Game.onFoot) ? G.Events.nearMarker : null;
     const pid = nm ? nm.id + ':' + (G.save.best[nm.id] || 0) : null;
@@ -250,11 +252,13 @@ G.UI = (function () {
     ctx.drawImage(W.mapCanvas, 0, 0);
     const dot = (x, z, r, col, stroke) => { const [a, b] = W.toMap(x, z); ctx.beginPath(); ctx.arc(a, b, r / zoom, 0, 7); ctx.fillStyle = col; ctx.fill(); if (stroke) { ctx.lineWidth = 2 / zoom; ctx.strokeStyle = stroke; ctx.stroke(); } };
     // GPS route
-    if (U.gps) {
-      ctx.strokeStyle = '#b04dff'; ctx.lineWidth = 6 / zoom; ctx.lineJoin = 'round'; ctx.beginPath();
-      const pts = [{ x: car.x, z: car.z }, ...U.gps.route];
-      pts.forEach((p, i) => { const [a, b] = W.toMap(p.x, p.z); i ? ctx.lineTo(a, b) : ctx.moveTo(a, b); }); ctx.stroke();
-      dot(U.gps.target.x, U.gps.target.z, 7, '#b04dff', '#fff');
+    if (U.gps && U.gps.route) {
+      ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+      for (const [w, c] of [[9, '#ffffff'], [6, '#4285f4']]) {
+        ctx.strokeStyle = c; ctx.lineWidth = w / zoom; ctx.beginPath();
+        U.gps.route.forEach((p, i) => { const [a, b] = W.toMap(p.x, p.z); i ? ctx.lineTo(a, b) : ctx.moveTo(a, b); }); ctx.stroke();
+      }
+      dot(U.gps.target.x, U.gps.target.z, 7, '#ea4335', '#fff');
     }
     for (const t of traffic) if (Math.abs(t.x - car.x) < 400 && Math.abs(t.z - car.z) < 400) dot(t.x, t.z, t.police ? 3.5 : 2.2, t.police ? '#3d7bff' : 'rgba(220,220,220,0.7)');
     if (!G.Events.active) for (const m of G.Events.markers()) dot(m.x, m.z, 6, '#' + new THREE.Color(m.def.color).getHexString(), '#fff');
@@ -262,6 +266,9 @@ G.UI = (function () {
     for (const r of racers) dot(r.x, r.z, 4.5, '#ffd400', '#000');
     const blink = Math.sin(performance.now() * 0.02) > 0;
     for (const c of cops) dot(c.x, c.z, 5, blink ? '#ff2040' : '#2060ff', '#fff');
+    // job suspect (red) and online players (cops blue, wanted red, others yellow)
+    for (const b of G.Jobs ? G.Jobs.bodies() : []) dot(b.x, b.z, 6, blink ? '#ff2040' : '#ff8a00', '#fff');
+    for (const b of G.Net ? G.Net.bodies() : []) dot(b.x, b.z, 5.5, b.isCop ? (blink ? '#ff2040' : '#2060ff') : (b.wanted ? '#ff2040' : '#ffd400'), '#fff');
     ctx.restore();
     // clamp off-screen important targets to the rim
     // player arrow
@@ -271,74 +278,149 @@ G.UI = (function () {
     ctx.restore();
     gpsCheck(car);
   };
-  function gpsCheck(car) {
-    if (U.gps && Math.hypot(U.gps.target.x - car.x, U.gps.target.z - car.z) < 25) { U.gps = null; U.toast('🎯 Đã đến điểm đánh dấu'); }
-    else if (U.gps && U.gps.route.length > 1 && Math.hypot(U.gps.route[0].x - car.x, U.gps.route[0].z - car.z) < 20) U.gps.route.shift();
-  }
+  function gpsCheck() { /* arrival + re-routing live in G.Nav.update */ }
 
-  // ---------------- Big map ----------------
+  // ---------------- Big map (Google-Maps style: zoom, pan, tap to route) ----------------
+  // view: centre (cx,cz) in world metres, k = screen px per metre
+  const bm = { cx: 0, cz: 0, k: 0.3, drag: null, moved: false, sel: null };
   let bmView = null;
   U.mapOpen = false;
   U.toggleMap = function (on) {
     U.mapOpen = on === undefined ? !U.mapOpen : on;
     $('bigmap').classList.toggle('hidden', !U.mapOpen);
     if (U.mapOpen) {
-      $('bmEvents').innerHTML = G.Events.list.map((d) => `<div><span style="color:#${new THREE.Color(d.color).getHexString()}">●</span> ${d.icon} ${d.name}</div>`).join('');
+      const F = G.Game.focus ? G.Game.focus() : G.Game.player;
+      bm.cx = F.x; bm.cz = F.z; bm.k = Math.min(innerWidth, innerHeight) / 1400;
+      renderPlaces();
+      showCard();
       drawBigMap();
     }
   };
+  function bmInit() {
+    const cv = $('bigmapCanvas');
+    cv.addEventListener('pointerdown', (e) => { bm.drag = { x: e.clientX, y: e.clientY, cx: bm.cx, cz: bm.cz }; bm.moved = false; cv.setPointerCapture(e.pointerId); });
+    cv.addEventListener('pointermove', (e) => {
+      if (!bm.drag) return;
+      const dx = e.clientX - bm.drag.x, dy = e.clientY - bm.drag.y;
+      if (Math.abs(dx) + Math.abs(dy) > 5) bm.moved = true;
+      if (bm.moved) { bm.cx = bm.drag.cx - dx / bm.k; bm.cz = bm.drag.cz - dy / bm.k; drawBigMap(); }
+    });
+    cv.addEventListener('pointerup', (e) => { const d = bm.drag; bm.drag = null; if (d && !bm.moved && e.button === 0) onMapClick(e); });
+    cv.addEventListener('wheel', (e) => { e.preventDefault(); zoomAt(e.clientX, e.clientY, e.deltaY < 0 ? 1.25 : 0.8); }, { passive: false });
+    cv.addEventListener('contextmenu', (e) => { e.preventDefault(); clearRoute(); });
+    $('bmZoomIn').onclick = () => zoomAt(innerWidth / 2, innerHeight / 2, 1.4);
+    $('bmZoomOut').onclick = () => zoomAt(innerWidth / 2, innerHeight / 2, 0.7);
+    $('bmMe').onclick = () => { const F = G.Game.focus(); bm.cx = F.x; bm.cz = F.z; drawBigMap(); };
+    $('bmClose').onclick = () => U.toggleMap(false);
+    $('bmGo').onclick = () => U.toggleMap(false);
+    $('bmClear').onclick = clearRoute;
+    window.addEventListener('resize', () => { if (U.mapOpen) drawBigMap(); });
+  }
+  function clearRoute() {
+    if (G.Nav.active && G.Nav.active.keep) { U.toast('Đang làm nhiệm vụ — không thể xoá chỉ đường'); return; }
+    G.Nav.clear(); showCard(); drawBigMap();
+  }
+  function zoomAt(sx, sy, f) {
+    const wx = bm.cx + (sx - innerWidth / 2) / bm.k, wz = bm.cz + (sy - innerHeight / 2) / bm.k;
+    bm.k = G.clamp(bm.k * f, 0.08, 4);
+    bm.cx = wx - (sx - innerWidth / 2) / bm.k; bm.cz = wz - (sy - innerHeight / 2) / bm.k;
+    drawBigMap();
+  }
+  function renderPlaces() {
+    $('bmEvents').innerHTML = G.Nav.places().map((p, i) => `<button class="bm-place" data-i="${i}"><span>${p.icon}</span>${p.name}</button>`).join('');
+    $('bmEvents').querySelectorAll('.bm-place').forEach((b) => {
+      b.onclick = () => { const p = G.Nav.places()[+b.dataset.i]; routeTo(p.x, p.z, p.name); bm.cx = p.x; bm.cz = p.z; drawBigMap(); };
+    });
+  }
+  function routeTo(x, z, name) {
+    if (G.Nav.active && G.Nav.active.keep) { U.toast('Đang làm nhiệm vụ — chỉ đường đã được đặt sẵn'); return; }
+    G.Nav.set({ x, z }, { name, silent: true });
+    showCard(); drawBigMap();
+  }
+  function showCard() {
+    const A = G.Nav.active;
+    $('bmCard').classList.toggle('hidden', !A);
+    if (!A) return;
+    const spd = Math.max(G.Game.focus().speed || 0, 14), eta = Math.round(A.len / spd);
+    $('bmCardName').textContent = '📍 ' + A.name;
+    $('bmCardInfo').textContent = G.Nav.fmtDist(A.len) + ' • khoảng ' + (eta >= 60 ? Math.round(eta / 60) + ' phút' : eta + ' giây') + (G.Game.onFoot ? ' (đi bộ: ' + Math.ceil(A.len / 4.5 / 60) + ' phút)' : '');
+  }
   function drawBigMap() {
-    const cv = $('bigmapCanvas'); cv.width = innerWidth; cv.height = innerHeight;
-    const ctx = cv.getContext('2d'), src = G.W.mapCanvas;
-    const k = Math.min(cv.width / src.width, cv.height / src.height) * 0.95;
-    const ox = (cv.width - src.width * k) / 2, oy = (cv.height - src.height * k) / 2;
-    bmView = { k, ox, oy };
-    ctx.fillStyle = '#05070c'; ctx.fillRect(0, 0, cv.width, cv.height);
-    ctx.drawImage(src, ox, oy, src.width * k, src.height * k);
-    const P = (x, z) => { const [a, b] = G.W.toMap(x, z); return [ox + a * k, oy + b * k]; };
+    const cv = $('bigmapCanvas'); if (cv.width !== innerWidth || cv.height !== innerHeight) { cv.width = innerWidth; cv.height = innerHeight; }
+    const ctx = cv.getContext('2d'), src = G.W.mapCanvas, M = G.W.MAP, k = bm.k, W2 = cv.width / 2, H2 = cv.height / 2;
+    const P = (x, z) => [W2 + (x - bm.cx) * k, H2 + (z - bm.cz) * k];
+    bmView = { P };
+    ctx.fillStyle = '#0b1220'; ctx.fillRect(0, 0, cv.width, cv.height);
+    const [ox, oy] = P(M.x0, M.z0);
+    ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(src, ox, oy, src.width / M.s * k, src.height / M.s * k);
+    // street names when zoomed in
+    if (k > 0.55) {
+      ctx.font = '600 12px "Chakra Petch", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      const L = G.W.lines;
+      ctx.fillStyle = 'rgba(255,255,255,0.75)'; ctx.strokeStyle = 'rgba(10,14,24,0.85)'; ctx.lineWidth = 3;
+      L.forEach((c, i) => {
+        for (let j = 0; j < L.length - 1; j += 2) {
+          const mid = (L[j] + L[j + 1]) / 2;
+          let [a, b] = P(c, mid); if (a > -50 && a < cv.width + 50 && b > -50 && b < cv.height + 50) { ctx.save(); ctx.translate(a, b); ctx.rotate(Math.PI / 2); ctx.strokeText(G.Nav.streetAt(c, mid), 0, 0); ctx.fillText(G.Nav.streetAt(c, mid), 0, 0); ctx.restore(); }
+          [a, b] = P(mid, c); if (a > -50 && a < cv.width + 50 && b > -50 && b < cv.height + 50) { ctx.strokeText(G.Nav.streetAt(mid, c), a, b); ctx.fillText(G.Nav.streetAt(mid, c), a, b); }
+        }
+        void i;
+      });
+    }
     ctx.fillStyle = '#ffd400';
     for (const c of G.Events.coins) if (!c.got) { const [a, b] = P(c.x, c.z); ctx.beginPath(); ctx.arc(a, b, 2.5, 0, 7); ctx.fill(); }
-    for (const m of G.Events.markers()) {
-      const [a, b] = P(m.x, m.z);
-      ctx.beginPath(); ctx.arc(a, b, 9, 0, 7); ctx.fillStyle = '#' + new THREE.Color(m.def.color).getHexString(); ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
-      ctx.font = '14px sans-serif'; ctx.textAlign = 'center'; ctx.fillText(m.def.icon, a, b - 14);
+    // route: white casing + Google-blue line
+    const A = G.Nav.active;
+    if (A && A.route.length > 1) {
+      ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+      for (const [w, c] of [[Math.max(7, k * 14), '#ffffff'], [Math.max(4, k * 9), '#4285f4']]) {
+        ctx.strokeStyle = c; ctx.lineWidth = w; ctx.beginPath();
+        A.route.forEach((p, i) => { const [a, b] = P(p.x, p.z); i ? ctx.lineTo(a, b) : ctx.moveTo(a, b); }); ctx.stroke();
+      }
     }
-    if (U.gps) {
-      ctx.strokeStyle = '#b04dff'; ctx.lineWidth = 4; ctx.beginPath();
-      const car = G.Game.player;
-      [{ x: car.x, z: car.z }, ...U.gps.route].forEach((p, i) => { const [a, b] = P(p.x, p.z); i ? ctx.lineTo(a, b) : ctx.moveTo(a, b); }); ctx.stroke();
+    // places + events
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    for (const p of G.Nav.places()) {
+      const [a, b] = P(p.x, p.z);
+      ctx.beginPath(); ctx.arc(a, b, 11, 0, 7); ctx.fillStyle = p.event ? 'rgba(255,45,149,0.9)' : 'rgba(255,255,255,0.92)'; ctx.fill();
+      ctx.font = '13px sans-serif'; ctx.fillStyle = '#000'; ctx.fillText(p.icon, a, b + 1);
+      if (k > 0.35 || !p.event) { ctx.font = '700 12px "Chakra Petch", sans-serif'; ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(5,8,14,0.9)'; ctx.strokeText(p.name, a, b + 20); ctx.fillStyle = '#fff'; ctx.fillText(p.name, a, b + 20); }
     }
-    const car = G.Game.player;
-    const [a, b] = P(car.x, car.z);
-    ctx.save(); ctx.translate(a, b); ctx.rotate(Math.PI - car.heading);
-    ctx.beginPath(); ctx.moveTo(0, -12); ctx.lineTo(9, 9); ctx.lineTo(0, 4); ctx.lineTo(-9, 9); ctx.closePath();
-    ctx.fillStyle = '#28ff8a'; ctx.fill(); ctx.strokeStyle = '#000'; ctx.stroke(); ctx.restore();
+    // destination pin
+    if (A) {
+      const [a, b] = P(A.target.x, A.target.z);
+      ctx.save(); ctx.translate(a, b);
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.bezierCurveTo(-4, -10, -13, -16, -13, -26); ctx.arc(0, -26, 13, Math.PI, 0); ctx.bezierCurveTo(13, -16, 4, -10, 0, 0);
+      ctx.fillStyle = '#ea4335'; ctx.fill(); ctx.strokeStyle = '#7a1a12'; ctx.lineWidth = 1.5; ctx.stroke();
+      ctx.beginPath(); ctx.arc(0, -26, 5, 0, 7); ctx.fillStyle = '#7a1a12'; ctx.fill();
+      ctx.restore();
+    }
+    // me (blue dot with heading cone, Google style)
+    const F = G.Game.focus ? G.Game.focus() : G.Game.player;
+    const [a, b] = P(F.x, F.z);
+    ctx.save(); ctx.translate(a, b); ctx.rotate(Math.PI - F.heading);
+    const gr = ctx.createLinearGradient(0, 0, 0, -40); gr.addColorStop(0, 'rgba(66,133,244,0.55)'); gr.addColorStop(1, 'rgba(66,133,244,0)');
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, 40, -Math.PI / 2 - 0.5, -Math.PI / 2 + 0.5); ctx.closePath(); ctx.fillStyle = gr; ctx.fill();
+    ctx.restore();
+    ctx.beginPath(); ctx.arc(a, b, 9, 0, 7); ctx.fillStyle = '#fff'; ctx.fill();
+    ctx.beginPath(); ctx.arc(a, b, 6.5, 0, 7); ctx.fillStyle = '#4285f4'; ctx.fill();
+    // scale bar
+    const m = [50, 100, 200, 500, 1000, 2000].find((v) => v * k > 70) || 2000;
+    ctx.fillStyle = 'rgba(8,11,22,0.8)'; ctx.fillRect(cv.width - 150, cv.height - 40, 136, 26);
+    ctx.fillStyle = '#fff'; ctx.fillRect(cv.width - 140, cv.height - 22, m * k, 3);
+    ctx.font = '600 11px "Chakra Petch", sans-serif'; ctx.textAlign = 'left'; ctx.fillText(m >= 1000 ? m / 1000 + ' km' : m + ' m', cv.width - 140, cv.height - 31);
   }
   function onMapClick(e) {
     if (!bmView) return;
-    const M = G.W.MAP;
-    const mx = (e.clientX - bmView.ox) / bmView.k, my = (e.clientY - bmView.oy) / bmView.k;
-    const x = mx / M.s + M.x0, z = my / M.s + M.z0;
-    U.setGps({ x, z });
-    drawBigMap();
+    const x = bm.cx + (e.clientX - innerWidth / 2) / bm.k, z = bm.cz + (e.clientY - innerHeight / 2) / bm.k;
+    // clicked a place icon?
+    for (const p of G.Nav.places()) { const [a, b] = bmView.P(p.x, p.z); if (Math.hypot(a - e.clientX, b - e.clientY) < 14) { routeTo(p.x, p.z, p.name); return; } }
+    routeTo(x, z);
   }
-  U.setGps = function (target) {
-    const car = G.Game.player, W = G.W, R = G.CFG.RING;
-    const inside = (p) => Math.abs(p.x) < R && Math.abs(p.z) < R;
-    let route = [];
-    if (inside(car) && inside(target)) {
-      route = W.path(W.nearestNode(car.x, car.z), W.nearestNode(target.x, target.z)).map((n) => W.node(n.i, n.j));
-    } else if (inside(car)) {
-      const exitN = W.nearestNode(target.x, target.z);
-      route = W.path(W.nearestNode(car.x, car.z), exitN).map((n) => W.node(n.i, n.j));
-    } else if (inside(target)) {
-      const entry = W.nearestNode(car.x, car.z);
-      route = W.path(entry, W.nearestNode(target.x, target.z)).map((n) => W.node(n.i, n.j));
-    }
-    route.push({ x: target.x, z: target.z });
-    U.gps = { target, route };
-    U.toast('🎯 Đã đặt GPS');
-  };
+  U.mapRefresh = () => { if (U.mapOpen) { showCard(); drawBigMap(); } };
+  // kept for older callers (admin teleport, events): route to a point
+  U.setGps = function (target, opts) { G.Nav.set(target, opts); };
 
   // ---------------- Quick actions (HUD bar, hotkeys, pause menu) ----------------
   const G_ = () => G.Game;
@@ -363,6 +445,7 @@ G.UI = (function () {
       case 'map': if (!Gm.garage && !Gm.simPaused) U.toggleMap(); break;
       case 'menu': if (!Gm.garage && !Gm.simPaused) Gm.togglePause(); break;
       case 'exit': U.exitToTitle(); break;
+      case 'mode': G.Jobs.openMenu(); break;
     }
   }
   // leave the open world for the title screen (asks first when an event would be lost)
@@ -370,6 +453,8 @@ G.UI = (function () {
     const Gm = G_();
     const go = () => {
       if (G.Events.active) G.Events.abort(true);
+      if (G.Jobs && G.Jobs.mode) G.Jobs.end(true);
+      if (G.Net && G.Net.connected) G.Net.leave();
       if (Gm.paused) Gm.togglePause(false);
       if (Gm.garage) Gm.closeGarage();
       U.closeSwitcher(true); U.toggleMap(false);
@@ -412,6 +497,8 @@ G.UI = (function () {
     const Gm = G_();
     if (!playing() || Gm.garage) return;
     if (G.Events.active) { U.toast('Không thể đổi xe khi đang trong sự kiện'); return; }
+    if (G.Jobs && G.Jobs.mode) { U.toast('Kết thúc ca ' + G.Jobs.label() + ' (J) trước khi đổi xe'); return; }
+    if (G.Net && G.Net.connected) { U.toast('Đổi xe trong phòng online: rời phòng hoặc chọn lại vai'); return; }
     if (G.Police && G.Police.active) { U.toast('🚨 Cắt đuôi cảnh sát trước khi đổi xe!'); return; }
     if (!Gm.onFoot && Gm.player && Gm.player.speed > 12) { U.toast('Giảm tốc để đổi xe'); return; }
     if (U.mapOpen) U.toggleMap(false);

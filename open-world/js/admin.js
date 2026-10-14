@@ -366,7 +366,7 @@ G.Admin = (function () {
       fab.onclick = () => { fab.blur(); AD.toggle(); }; document.body.appendChild(fab);
     }
     // hidden while a menu covers the screen (pause, garage, car switcher, results) — F2 still works
-    const showFab = admin && G.Game && G.Game.state === 'play' && !G.Game.paused && !G.Game.simPaused && !G.Game.garage && !(G.Auth.visible && G.Auth.visible());
+    const showFab = admin && G.Game && G.Game.state === 'play' && !G.Game.paused && !G.Game.simPaused && !G.Game.garage && !(G.UI && G.UI.mapOpen) && !(G.Auth.visible && G.Auth.visible());
     if (fab.classList.contains('hidden') === showFab) fab.classList.toggle('hidden', !showFab);
     if (AD.freeze) G.save.settings.timeScale = 0;
     if (AD.nitro && P()) P().nitro = P().perf.nitroCap;

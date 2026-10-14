@@ -29,6 +29,7 @@
     <div class="menu">
       <button class="btn primary hidden" id="btnContinue">▶ TIẾP TỤC<small id="continueInfo"></small></button>
       <button class="btn primary" id="btnPlay">▶ VÀO THÀNH PHỐ</button>
+      <button class="btn" id="btnTitleMode">🎮 CHẾ ĐỘ CHƠI <small>Taxi • Cảnh sát • Nhiều người chơi</small></button>
       <button class="btn" id="btnTitleGarage">🚗 ĐỔI XE / GARA</button>
       <button class="btn" id="btnTitleSettings">⚙ CÀI ĐẶT</button>
       <div class="menu-row">
@@ -43,7 +44,7 @@
       <div><b>SPACE</b> Phanh tay (drift)</div><div><b>SHIFT</b> Nitro</div><div><b>C</b> Đổi camera</div>
       <div><b>E</b> Bắt đầu sự kiện</div><div><b>G</b> Gara</div><div><b>M</b> Bản đồ</div>
       <div><b>F</b> Xuống / lên xe</div><div><b>V / TAB</b> Đổi xe nhanh</div>
-      <div><b>R</b> Đặt lại xe</div><div><b>H</b> Còi</div><div><b>T</b> +1 giờ</div><div><b>ESC</b> Tạm dừng</div>
+      <div><b>J</b> Chế độ chơi</div><div><b>R</b> Đặt lại xe</div><div><b>H</b> Còi</div><div><b>T</b> +1 giờ</div><div><b>ESC</b> Tạm dừng</div>
       <div class="pad-hint">🎮 Hỗ trợ tay cầm: RT ga • LT phanh • B phanh tay • RB nitro • A sự kiện</div>
     </div>
   </div>
@@ -67,6 +68,7 @@
     <div class="qbar" id="qbar">
       <button class="qb" data-act="foot" id="qbFoot" tabindex="-1" title="Xuống / lên xe (F)"><i>🚶</i><span id="qbFootTxt">XUỐNG XE</span><kbd>F</kbd></button>
       <button class="qb" data-act="switch" tabindex="-1" title="Đổi xe nhanh (V / Tab)"><i>🚗</i><span>ĐỔI XE</span><kbd>V</kbd></button>
+      <button class="qb" data-act="mode" tabindex="-1" title="Chế độ chơi: Taxi / Cảnh sát / Online (J)"><i>🎮</i><span id="qbModeTxt">CHẾ ĐỘ</span><kbd>J</kbd></button>
       <button class="qb" data-act="garage" tabindex="-1" title="Gara (G)"><i>🔧</i><span>GARA</span><kbd>G</kbd></button>
       <button class="qb" data-act="map" tabindex="-1" title="Bản đồ (M)"><i>🗺</i><span>BẢN ĐỒ</span><kbd>M</kbd></button>
       <button class="qb" data-act="menu" tabindex="-1" title="Tạm dừng / menu (Esc)"><i>⏸</i><span>MENU</span><kbd>ESC</kbd></button>
@@ -108,7 +110,7 @@
     <div class="tbtn small" data-k="nitro">N₂O</div><div class="tbtn small" data-k="hand">⛔</div>
     <div class="tbtn" data-k="brake">▼</div><div class="tbtn gas" data-k="gas">▲</div>
   </div>
-  <div class="t-top"><div class="tbtn mini" data-press="KeyE">E</div><div class="tbtn mini" data-press="KeyC">CAM</div><div class="tbtn mini" data-press="KeyM">MAP</div><div class="tbtn mini" data-press="KeyG">GARA</div><div class="tbtn mini" data-act="foot" id="tFoot">🚶 XE</div><div class="tbtn mini" data-act="switch">🚗 ĐỔI</div><div class="tbtn mini" data-press="Escape">II</div></div>
+  <div class="t-top"><div class="tbtn mini" data-press="KeyE">E</div><div class="tbtn mini" data-press="KeyC">CAM</div><div class="tbtn mini" data-press="KeyM">MAP</div><div class="tbtn mini" data-press="KeyG">GARA</div><div class="tbtn mini" data-act="foot" id="tFoot">🚶 XE</div><div class="tbtn mini" data-act="switch">🚗 ĐỔI</div><div class="tbtn mini" data-act="mode">🎮</div><div class="tbtn mini" data-press="Escape">II</div></div>
 </div>
 
 <!-- RESULTS -->
@@ -137,6 +139,7 @@
         <button class="btn hidden" id="btnPauseFoot">🚶 XUỐNG XE</button>
         <button class="btn" id="btnPauseGarage">🔧 GARA</button>
         <button class="btn" id="btnPauseMap">🗺 BẢN ĐỒ</button>
+        <button class="btn" id="btnPauseMode">🎮 CHẾ ĐỘ CHƠI</button>
       </div>
       <button class="btn" id="btnPauseTitle">⌂ THOÁT RA MÀN HÌNH CHÍNH</button>
       <button class="btn sub hidden" id="btnPauseLogout">👤 ĐĂNG XUẤT / ĐỔI TÀI KHOẢN</button>
@@ -212,10 +215,22 @@
 <div id="bigmap" class="hidden">
   <canvas id="bigmapCanvas"></canvas>
   <div class="bm-legend">
-    <div class="bm-title">BẢN ĐỒ THÀNH PHỐ</div>
-    <div>🟢 Bạn &nbsp; 🎯 Điểm đến (click để đặt GPS) &nbsp; ⭐ Đồng xu</div>
-    <div id="bmEvents"></div>
-    <div class="bm-close">M / ESC để đóng • Chuột phải để xoá GPS</div>
+    <div class="bm-title">🗺 BẢN ĐỒ THÀNH PHỐ</div>
+    <div class="bm-help">Bấm vào bản đồ để chỉ đường • Cuộn chuột để phóng to • Kéo để di chuyển</div>
+    <div class="bm-sec">ĐỊA ĐIỂM</div>
+    <div id="bmEvents" class="bm-places"></div>
+    <div class="bm-close">M / ESC để đóng • Chuột phải để xoá chỉ đường</div>
+  </div>
+  <div class="bm-tools">
+    <button class="bm-btn" id="bmZoomIn" title="Phóng to">＋</button>
+    <button class="bm-btn" id="bmZoomOut" title="Thu nhỏ">－</button>
+    <button class="bm-btn" id="bmMe" title="Vị trí của tôi">◎</button>
+    <button class="bm-btn" id="bmClose" title="Đóng bản đồ (M)">✕</button>
+  </div>
+  <div class="bm-card hidden" id="bmCard">
+    <div class="bm-card-name" id="bmCardName"></div>
+    <div class="bm-card-info" id="bmCardInfo"></div>
+    <div class="bm-card-actions"><button class="btn primary" id="bmGo">▶ BẮT ĐẦU</button><button class="btn" id="bmClear">✕ XOÁ</button></div>
   </div>
 </div>
 
@@ -233,6 +248,9 @@
 <script src="js/traffic.js"></script>
 <script src="js/events.js"></script>
 <script src="js/character.js"></script>
+<script src="js/nav.js"></script>
+<script src="js/jobs.js"></script>
+<script src="js/net.js"></script>
 <script src="js/auth.js"></script>
 <script src="js/admin.js"></script>
 <script src="js/ui.js"></script>

@@ -175,6 +175,10 @@ G.Auth = (function () {
   function enter(name, role, guest, remember) {
     A.user = guest ? null : name; A.role = guest ? 'guest' : role; A.guest = !!guest;
     useSave(guest ? GUEST_KEY : keyFor(name));
+    // built-in admin account: one-time grant of $10,000,000,000 (spent/earned normally afterwards)
+    if (!guest && role === 'admin' && norm(name) === 'admin' && !G.save.grant10b) {
+      G.save.cash = Math.max(G.save.cash || 0, 10000000000); G.save.grant10b = true; G.persist();
+    }
     try {
       if (remember) localStorage.setItem(SESSION, JSON.stringify({ user: guest ? '~guest' : norm(name), at: Date.now() }));
       else localStorage.removeItem(SESSION);

@@ -10,38 +10,50 @@ G.CARS = [
   { id: 'kitsune', name: 'KITSUNE TYPE-R', brand: 'HIKARI', cls: 'D', price: 0, desc: 'Hatchback độ nhẹ, linh hoạt, dễ drift — xe khởi đầu.',
     maxSpeed: 62, accel: 13, brake: 30, grip: 7.0, steer: 0.62, mass: 1150, nitro: 1.0,
     body: { L: 4.15, W: 1.82, clr: 0.24, nose: 0.74, beltF: 0.98, beltR: 1.0, tail: 1.02, roof: 1.44, ws: 0.62, rf: 0.0, rr: -1.55, rw: -1.95, wheelR: 0.33, wb: 2.55, style: 'hatch' },
+    look: { rim: 'spoke6', rimCol: 'bronze', caliper: 0xd21f2a, exhaust: 'single' },
     colors: [0xf2f2f2, 0xd21f2a, 0x1b6fe0, 0xf6c400, 0x1a1a1d, 0x28c76f] },
   { id: 'raptor', name: 'RAPTOR GT 500', brand: 'STALLION', cls: 'C', price: 15000, desc: 'Xe cơ bắp V8, tăng tốc mạnh, đuôi dễ văng.',
     maxSpeed: 74, accel: 15, brake: 30, grip: 6.2, steer: 0.55, mass: 1650, nitro: 1.1,
     body: { L: 4.8, W: 1.96, clr: 0.22, nose: 0.82, beltF: 0.98, beltR: 1.0, tail: 0.98, roof: 1.33, ws: 0.25, rf: -0.4, rr: -1.15, rw: -1.75, wheelR: 0.35, wb: 2.85, style: 'muscle' },
+    look: { rim: 'spoke5', rimCol: 'chrome', caliper: 0x1565c0, exhaust: 'quadSplit' },
     colors: [0x0d47a1, 0xff6f00, 0x111111, 0xe0e0e0, 0x8e0000, 0x2e7d32] },
   { id: 'vanta', name: 'VANTA S-SPORT', brand: 'NORDWERK', cls: 'C', price: 22000, desc: 'Sedan thể thao bốn cửa, cân bằng và ổn định.',
     maxSpeed: 76, accel: 14, brake: 34, grip: 8.0, steer: 0.56, mass: 1700, nitro: 1.0,
     body: { L: 4.95, W: 1.9, clr: 0.22, nose: 0.72, beltF: 0.96, beltR: 1.02, tail: 1.04, roof: 1.45, ws: 0.6, rf: -0.05, rr: -1.25, rw: -1.8, wheelR: 0.35, wb: 2.9, style: 'sedan' },
+    look: { rim: 'multi', rimCol: 'silver', caliper: 0x1e88e5, exhaust: 'quadSplit' },
     colors: [0x2b2f36, 0xc0c4c8, 0x0a2a5a, 0x7a0012, 0xf5f5f5, 0x3a4a2a] },
   { id: 'titan', name: 'TITAN 4X4 R', brand: 'IRONHIDE', cls: 'C', price: 28000, desc: 'SUV off-road: chạy cỏ/cát gần như đường nhựa, nặng, khó cản.',
     maxSpeed: 64, accel: 12, brake: 28, grip: 7.5, steer: 0.55, mass: 2300, nitro: 1.0, offroad: true,
     body: { L: 4.75, W: 2.02, clr: 0.5, nose: 1.15, beltF: 1.32, beltR: 1.34, tail: 1.36, roof: 1.98, ws: 0.8, rf: 0.25, rr: -2.1, rw: -2.3, wheelR: 0.46, wb: 2.85, style: 'suv' },
+    look: { rim: 'beadlock', rimCol: 'black', caliper: 0xffb300, exhaust: 'twinSide' },
     colors: [0x4b5320, 0xd8d2c0, 0x1a1a1a, 0xb33a00, 0x2a3f5f, 0xffffff] },
   { id: 'apex', name: 'APEX GT-R', brand: 'APEX MOTORS', cls: 'B', price: 45000, desc: 'Coupe GT dẫn động 4 bánh, bám đường xuất sắc.',
     maxSpeed: 86, accel: 17, brake: 38, grip: 9.5, steer: 0.55, mass: 1550, nitro: 1.15,
     body: { L: 4.7, W: 1.96, clr: 0.2, nose: 0.68, beltF: 0.92, beltR: 0.98, tail: 1.0, roof: 1.33, ws: 0.5, rf: -0.25, rr: -1.0, rw: -1.9, wheelR: 0.35, wb: 2.78, style: 'gt', wing: 'big' },
+    look: { rim: 'mesh', rimCol: 'gunmetal', caliper: 0xffd400, exhaust: 'quadSplit' },
     colors: [0xb0b5bb, 0x0050ff, 0xff2d2d, 0x101010, 0xffd400, 0xff7a00] },
   { id: 'phantom', name: 'PHANTOM V12', brand: 'ROSSO', cls: 'A', price: 80000, desc: 'Siêu xe động cơ đặt giữa V12, tốc độ cực đại khủng.',
     maxSpeed: 96, accel: 20, brake: 42, grip: 10, steer: 0.52, mass: 1450, nitro: 1.2,
     body: { L: 4.6, W: 2.04, clr: 0.18, nose: 0.55, beltF: 0.78, beltR: 0.96, tail: 0.96, roof: 1.17, ws: 0.95, rf: 0.05, rr: -0.75, rw: -1.5, wheelR: 0.35, wb: 2.7, style: 'hyper', wing: 'duck' },
+    look: { rim: 'y5', rimCol: 'gold', caliper: 0xffc400, exhaust: 'hex' },
     colors: [0xd50000, 0xffc400, 0x00c853, 0xf5f5f5, 0x111111, 0x6a1b9a] },
   { id: 'aero', name: 'AERO JX ABSOLUT', brand: 'KÖNIG', cls: 'S', price: 130000, desc: 'Hypercar khí động học, 1600 mã lực, cánh gió cổ thiên nga.',
     maxSpeed: 108, accel: 22, brake: 46, grip: 11, steer: 0.5, mass: 1400, nitro: 1.25,
     body: { L: 4.65, W: 2.06, clr: 0.16, nose: 0.5, beltF: 0.74, beltR: 0.92, tail: 0.92, roof: 1.12, ws: 1.05, rf: 0.15, rr: -0.6, rw: -1.3, wheelR: 0.35, wb: 2.75, style: 'hyper', wing: 'swan' },
+    look: { rim: 'turbine', rimCol: 'black', caliper: 0x00b8ff, exhaust: 'centerTwin' },
     colors: [0xdfe6ee, 0x00b8ff, 0xff4081, 0x111317, 0xff9100, 0x00e676] },
   { id: 'formula', name: 'F-ZERO W1', brand: 'VELOCE', cls: 'S+', price: 220000, desc: 'Xe công thức 1: bám đường tuyệt đối, nhanh nhất thành phố.',
     maxSpeed: 115, accel: 26, brake: 55, grip: 14, steer: 0.48, mass: 800, nitro: 1.2,
     body: { L: 5.2, W: 1.95, wheelR: 0.36, wb: 3.4, style: 'formula' },
+    look: { rim: 'race', rimCol: 'black', caliper: 0xffd400, exhaust: 'center' },
     colors: [0xd50000, 0x00d2be, 0xff8700, 0x0600ef, 0xf5f5f5, 0x111111] },
 ];
 G.POLICE_SPEC = { id: 'police', name: 'INTERCEPTOR', maxSpeed: 88, accel: 17, brake: 40, grip: 9.5, steer: 0.55, mass: 1800, nitro: 1.0,
-  body: { L: 5.0, W: 1.94, clr: 0.22, nose: 0.74, beltF: 0.98, beltR: 1.02, tail: 1.04, roof: 1.46, ws: 0.6, rf: -0.05, rr: -1.25, rw: -1.8, wheelR: 0.35, wb: 2.9, style: 'police' } };
+  body: { L: 5.0, W: 1.94, clr: 0.22, nose: 0.74, beltF: 0.98, beltR: 1.02, tail: 1.04, roof: 1.46, ws: 0.6, rf: -0.05, rr: -1.25, rw: -1.8, wheelR: 0.35, wb: 2.9, style: 'police' },
+  look: { rim: 'spoke5', rimCol: 'black', caliper: 0x222222, exhaust: 'twinSide' } };
+G.TAXI_SPEC = { id: 'taxi', name: 'CITY CAB', maxSpeed: 72, accel: 14, brake: 34, grip: 8.2, steer: 0.56, mass: 1600, nitro: 1.0,
+  body: { L: 4.85, W: 1.86, clr: 0.22, nose: 0.74, beltF: 0.98, beltR: 1.02, tail: 1.04, roof: 1.47, ws: 0.6, rf: -0.05, rr: -1.25, rw: -1.8, wheelR: 0.34, wb: 2.85, style: 'taxi' },
+  look: { rim: 'multi', rimCol: 'silver', caliper: 0x333333, exhaust: 'twinSide' } };
 G.carById = (id) => G.CARS.find((c) => c.id === id) || G.CARS[0];
 
 // Performance after upgrades (each level: +4% top speed, +8% accel / +7% grip / +25% nitro)
@@ -129,22 +141,151 @@ G.CarModels = (function () {
     const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); m.position.set(x, y, z); parent.add(m); return m;
   }
 
-  function makeWheel(r, w, rimMat, m, caliper) {
+  // ---------- Wheels: lettered tyre, extruded multi-spoke rim, drilled disc + caliper ----------
+  const RIM_COL = { chrome: [0xe8e8e8, 1.0, 0.1], silver: [0xc9ccd1, 0.95, 0.2], gunmetal: [0x3c3f45, 0.9, 0.28], black: [0x18191c, 0.7, 0.32], gold: [0xc9a43a, 1.0, 0.2], bronze: [0x8a6a3c, 0.95, 0.28] };
+  const rimMats = {}, caliperMats = {}, geoCache = {};
+  const cached = (key, make) => geoCache[key] || (geoCache[key] = make());
+  function rimMat(name) {
+    const c = RIM_COL[name] || RIM_COL.chrome;
+    return rimMats[name] || (rimMats[name] = new THREE.MeshStandardMaterial({ color: G.col(c[0]), metalness: c[1], roughness: c[2], envMapIntensity: 1.3 }));
+  }
+  function caliperMat(hex) {
+    return caliperMats[hex] || (caliperMats[hex] = new THREE.MeshStandardMaterial({ color: G.col(hex), roughness: 0.3, metalness: 0.35 }));
+  }
+  function wheelMats() {
+    const m = mats();
+    if (!m.tread) {
+      m.tread = new THREE.MeshStandardMaterial({ map: G.TEX.tread(), roughness: 0.92 });
+      m.tireSide = new THREE.MeshStandardMaterial({ map: G.TEX.tireSide('SPEED RUSH'), roughness: 0.85 });
+      m.barrel = new THREE.MeshStandardMaterial({ color: G.col(0x2a2b2e), metalness: 0.6, roughness: 0.5, side: THREE.DoubleSide });
+      m.discEdge = new THREE.MeshStandardMaterial({ color: G.col(0x55575b), metalness: 0.8, roughness: 0.4 });
+      m.discTex = G.TEX.brakeDisc();
+    }
+    return m;
+  }
+  M.discMat = function () {
+    return new THREE.MeshStandardMaterial({ map: wheelMats().discTex, metalness: 0.75, roughness: 0.4, emissive: new THREE.Color(1, 0.16, 0.02), emissiveIntensity: 0 });
+  };
+  // rim face: a disc with windows between the spokes, extruded and turned so it faces +x
+  const RIM_STYLE = {
+    spoke5: { n: 5, w: 0.36, ri: 0.3 }, spoke6: { n: 6, w: 0.26, ri: 0.3 }, multi: { n: 10, w: 0.13, ri: 0.32 },
+    mesh: { n: 16, w: 0.075, ri: 0.3, tw: 0.32 }, turbine: { n: 12, w: 0.1, ri: 0.3, tw: 0.75 }, y5: { n: 5, w: 0.11, ri: 0.3, pair: 0.46 },
+    beadlock: { n: 8, w: 0.24, ri: 0.4, ro: 0.8 }, race: { n: 6, w: 0.14, ri: 0.34 },
+  };
+  function rimFaceGeo(style, R) {
+    return cached('rim' + style + R.toFixed(3), () => {
+      const c = RIM_STYLE[style] || RIM_STYLE.spoke5;
+      const s = new THREE.Shape(); s.absarc(0, 0, R, 0, Math.PI * 2, false);
+      const ri = R * c.ri, ro = R * (c.ro || 0.87), sw = c.w * R / 2, tw = c.tw || 0;
+      const centers = [];
+      for (let k = 0; k < c.n; k++) { const a = k / c.n * Math.PI * 2; if (c.pair) centers.push(a - c.pair / 2, a + c.pair / 2); else centers.push(a); }
+      const hi = sw / ri, ho = sw / ro;
+      for (let k = 0; k < centers.length; k++) {
+        const a = centers[k], b = k + 1 < centers.length ? centers[k + 1] : centers[0] + Math.PI * 2;
+        const s0 = a + hi, e0 = b - hi, s1 = a + ho + tw, e1 = b - ho + tw;
+        if (e0 - s0 < 0.02 || e1 - s1 < 0.02) continue;
+        const p = new THREE.Path();
+        p.moveTo(Math.cos(s0) * ri, Math.sin(s0) * ri);
+        p.lineTo(Math.cos(s1) * ro, Math.sin(s1) * ro);
+        p.absarc(0, 0, ro, s1, e1, false);
+        p.lineTo(Math.cos(e0) * ri, Math.sin(e0) * ri);
+        p.absarc(0, 0, ri, e0, s0, true);
+        s.holes.push(p);
+      }
+      const depth = 0.04;
+      const g = new THREE.ExtrudeGeometry(s, { depth, bevelEnabled: true, bevelThickness: 0.012, bevelSize: 0.008, bevelSegments: 2, curveSegments: centers.length > 9 ? 5 : 10 });
+      g.rotateY(Math.PI / 2); g.translate(-depth, 0, 0); // front cap faces +x at x = 0 (+ bevel)
+      g.computeVertexNormals();
+      return g;
+    });
+  }
+  // look: {rim, rimCol, caliper}; mirror = right-hand wheel (group turned 180° so the face points out)
+  function makeWheel(r, w, look, mirror, discMat) {
+    const m = wheelMats();
+    look = look || { rim: 'spoke5', rimCol: 'chrome', caliper: 0xe01a1a };
     const steer = new THREE.Group(), spin = new THREE.Group();
     steer.add(spin);
-    const tire = new THREE.Mesh(new THREE.CylinderGeometry(r, r, w, 26, 1), m.tire); tire.rotation.z = Math.PI / 2; spin.add(tire);
-    const side = new THREE.Mesh(new THREE.TorusGeometry(r * 0.86, r * 0.14, 6, 24), m.tire); side.rotation.y = Math.PI / 2; side.position.x = w / 2 - 0.01; spin.add(side);
-    const rim = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.7, r * 0.7, w + 0.02, 20), rimMat); rim.rotation.z = Math.PI / 2; spin.add(rim);
-    const dish = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.62, r * 0.62, 0.03, 20), m.black); dish.rotation.z = Math.PI / 2; dish.position.x = w / 2 + 0.005; spin.add(dish);
-    for (let k = 0; k < 5; k++) {
-      const sp = new THREE.Mesh(new THREE.BoxGeometry(0.05, r * 1.2, 0.09), rimMat);
-      sp.position.x = w / 2 + 0.02; sp.rotation.x = k / 5 * Math.PI; spin.add(sp);
+    const rimM = rimMat(look.rimCol), R = r * (look.rim === 'beadlock' ? 0.68 : 0.74), face = w / 2;
+    // tyre: open tread tube + ring sidewalls (outer one lettered) so the rim shows through the middle
+    const tire = new THREE.Mesh(cached('tire' + r + w, () => new THREE.CylinderGeometry(r, r, w, 40, 1, true)), m.tread);
+    tire.rotation.z = Math.PI / 2; tire.castShadow = true; spin.add(tire);
+    const ring = cached('ring' + r + R, () => { const g = new THREE.RingGeometry(R, r, 40, 1); g.rotateY(Math.PI / 2); return g; });
+    const outer = new THREE.Mesh(ring, m.tireSide); outer.position.x = face; spin.add(outer);
+    const inner = new THREE.Mesh(ring, m.tire); inner.rotation.y = Math.PI; inner.position.x = -face; spin.add(inner);
+    const sh = new THREE.Mesh(cached('sh' + r, () => new THREE.TorusGeometry(r * 0.93, r * 0.075, 6, 36)), m.tire);
+    sh.rotation.y = Math.PI / 2; sh.position.x = face - 0.025; spin.add(sh);
+    // rim barrel (dark inside), polished lip, spoked face, centre cap + lug nuts
+    const barrel = new THREE.Mesh(cached('bar' + R + w, () => new THREE.CylinderGeometry(R, R, w * 0.9, 32, 1, true)), m.barrel);
+    barrel.rotation.z = Math.PI / 2; spin.add(barrel);
+    const lip = new THREE.Mesh(cached('lip' + R, () => new THREE.TorusGeometry(R, 0.015, 6, 40)), rimM);
+    lip.rotation.y = Math.PI / 2; lip.position.x = face - 0.01; spin.add(lip);
+    const rf = new THREE.Mesh(rimFaceGeo(look.rim, R * 0.98), rimM); rf.position.x = face - 0.03; spin.add(rf);
+    const cap = new THREE.Mesh(cached('cap' + R, () => new THREE.CylinderGeometry(R * 0.2, R * 0.23, 0.035, 18)), rimM);
+    cap.rotation.z = Math.PI / 2; cap.position.x = face - 0.005; spin.add(cap);
+    const logo = new THREE.Mesh(cached('logo' + R, () => new THREE.CylinderGeometry(R * 0.11, R * 0.11, 0.01, 14)), caliperMat(look.caliper));
+    logo.rotation.z = Math.PI / 2; logo.position.x = face + 0.015; spin.add(logo);
+    const nuts = look.rim === 'race' ? 1 : 5;
+    for (let k = 0; k < nuts; k++) {
+      const a = k / nuts * Math.PI * 2, rr = nuts === 1 ? 0 : R * 0.29;
+      const n = new THREE.Mesh(cached('nut' + nuts, () => new THREE.CylinderGeometry(nuts === 1 ? 0.045 : 0.017, nuts === 1 ? 0.045 : 0.017, 0.03, 6)), m.chrome);
+      n.rotation.z = Math.PI / 2; n.position.set(face + 0.008, Math.cos(a) * rr, Math.sin(a) * rr); spin.add(n);
     }
-    const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.06, 8), m.chrome); hub.rotation.z = Math.PI / 2; hub.position.x = w / 2 + 0.04; spin.add(hub);
-    if (caliper) { const c = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.22, 0.28), m.caliper); c.position.set(w / 2 - 0.08, 0.12, -0.12); steer.add(c); }
-    tire.castShadow = true;
+    if (look.rim === 'beadlock') for (let k = 0; k < 18; k++) {
+      const a = k / 18 * Math.PI * 2, bolt = new THREE.Mesh(cached('bolt', () => new THREE.CylinderGeometry(0.012, 0.012, 0.025, 6)), m.chrome);
+      bolt.rotation.z = Math.PI / 2; bolt.position.set(face - 0.004, Math.cos(a) * R * 0.95, Math.sin(a) * R * 0.95); spin.add(bolt);
+    }
+    // drilled disc (spins, glows when hot) + caliper (fixed, sits on the rear-top of the disc)
+    const disc = new THREE.Mesh(cached('disc' + R, () => new THREE.CylinderGeometry(R * 0.84, R * 0.84, 0.028, 32)), [m.discEdge, discMat, discMat]);
+    disc.rotation.z = Math.PI / 2; disc.position.x = face - 0.12; disc.userData.keep = true; spin.add(disc);
+    const cg = new THREE.Group(); cg.rotation.x = mirror ? 0.75 : -0.75; steer.add(cg);
+    const cal = new THREE.Mesh(cached('cal' + R, () => new THREE.BoxGeometry(0.075, R * 0.24, R * 0.62)), caliperMat(look.caliper));
+    cal.position.set(face - 0.1, R * 0.7, 0); cg.add(cal);
     M.mergeByMaterial(spin);
     return { steer, spin };
+  }
+  // exhaust flame: two crossed additive planes (outer colour + hot core), extending toward -z
+  function flameGroup(outer, core) {
+    const geo = cached('flame', () => { const g = new THREE.PlaneGeometry(1, 1); g.translate(0, 0.5, 0); g.rotateX(-Math.PI / 2); return g; });
+    const grp = new THREE.Group();
+    for (const [mat, sw, sl] of [[outer, 1, 1], [core, 0.45, 0.55]]) for (const rz of [0, Math.PI / 2]) {
+      const p = new THREE.Mesh(geo, mat); p.rotation.z = rz; p.scale.set(sw, 1, sl); p.renderOrder = 6; grp.add(p);
+    }
+    grp.visible = false; grp.userData.keep = true;
+    return grp;
+  }
+  function flameMats() {
+    const m = mats();
+    if (!m.fireOuter) {
+      const t = G.TEX.flame(); t.flipY = false;
+      const mk = (r, g, b) => new THREE.MeshBasicMaterial({ map: t, color: new THREE.Color(r, g, b), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+      m.fireOuter = mk(3.2, 0.9, 0.12); m.fireCore = mk(3.5, 2.8, 1.4);
+      m.nitroOuter = mk(0.35, 0.9, 4.5); m.nitroCore = mk(2.2, 3.2, 5.5);
+      m.titanium = new THREE.MeshStandardMaterial({ map: G.TEX.titanium(), metalness: 1, roughness: 0.22, side: THREE.DoubleSide, envMapIntensity: 1.3 });
+    }
+    return m;
+  }
+  // exhaust tips per layout + backfire / nitro flames on each tip
+  const EXHAUST = {
+    single: { r: 0.075, pts: (W) => [[W * 0.26, 0]] },
+    center: { r: 0.08, pts: () => [[0, 0]] },
+    twinSide: { r: 0.065, pts: (W) => [[-W * 0.28, 0], [W * 0.28, 0]] },
+    quadSplit: { r: 0.052, pts: (W) => [[-W * 0.33, 0], [-W * 0.24, 0], [W * 0.24, 0], [W * 0.33, 0]] },
+    hex: { r: 0.06, seg: 6, pts: () => [[-0.1, 0.075], [0.1, 0.075], [-0.1, -0.075], [0.1, -0.075]] },
+    centerTwin: { r: 0.085, oval: 0.65, pts: () => [[-0.14, 0], [0.14, 0]] },
+  };
+  function addExhausts(g, ud, layout, W, y, z) {
+    const m = flameMats(), E = EXHAUST[layout] || EXHAUST.twinSide, seg = E.seg || 18;
+    ud.fire = []; ud.flames = []; ud.tips = [];
+    for (const [x, dy] of E.pts(W)) {
+      const tip = new THREE.Mesh(cached('tip' + E.r + seg, () => new THREE.CylinderGeometry(E.r, E.r * 1.08, 0.24, seg, 1, true)), m.titanium);
+      tip.rotation.x = Math.PI / 2; tip.position.set(x, y + dy, z + 0.06); if (E.oval) tip.scale.set(1, 1, E.oval); g.add(tip);
+      const hole = new THREE.Mesh(cached('hole' + E.r + seg, () => new THREE.CircleGeometry(E.r * 0.86, seg)), mats().black);
+      hole.rotation.y = Math.PI; hole.position.set(x, y + dy, z + 0.1); if (E.oval) hole.scale.set(1, E.oval, 1); g.add(hole);
+      const fire = flameGroup(m.fireOuter, m.fireCore), nos = flameGroup(m.nitroOuter, m.nitroCore);
+      fire.position.set(x, y + dy, z - 0.06); nos.position.copy(fire.position);
+      fire.userData.base = E.r * 4.2; nos.userData.base = E.r * 3.6;
+      g.add(fire); g.add(nos); ud.fire.push(fire); ud.flames.push(nos); ud.tips.push(new THREE.Vector3(x, y + dy, z - 0.1));
+    }
   }
 
   // Build a full-detail car. Returns THREE.Group with .userData {wheels, paint, tail, brake, flames, head}
@@ -154,11 +295,12 @@ G.CarModels = (function () {
     const g = new THREE.Group();
     const paint = M.paint(colorHex);
     const tail = new THREE.MeshBasicMaterial({ color: new THREE.Color(1.3, 0.04, 0.03) });
-    const ud = { wheels: [], paint, tail, flames: [], body: b };
+    const discMat = M.discMat(), look = spec.look || {};
+    const ud = { wheels: [], paint, tail, flames: [], fire: [], body: b, discMat };
     g.userData = ud;
     const W = b.W;
 
-    if (b.style === 'formula') return buildFormula(g, spec, paint, tail, m, opts);
+    if (b.style === 'formula') return buildFormula(g, spec, paint, tail, m, look, discMat);
 
     // body + cabin
     const bodyGeo = extrudeSide(bodyShape(b), W, 0.12);
@@ -189,15 +331,17 @@ G.CarModels = (function () {
     const ty = b.tail - 0.1;
     if (b.style === 'hyper' || b.style === 'gt' || b.style === 'sedan') box(W * 0.86, 0.06, 0.08, tail, 0, ty, -h - 0.06, g);
     [-1, 1].forEach((sd) => box(W * 0.2, 0.1, 0.08, tail, sd * W * 0.36, ty - 0.03, -h - 0.065, g));
-    // plate + exhausts
-    box(0.52, 0.12, 0.02, m.plate, 0, b.clr + 0.4, -h + 0.02, g);
-    const exN = b.style === 'muscle' ? [-0.55, 0.55] : (b.style === 'hyper' ? [-0.12, 0.12] : [-0.5, 0.5]);
-    exN.forEach((x) => {
-      const ex = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.07, 0.25, 12), m.chrome);
-      ex.rotation.x = Math.PI / 2; ex.position.set(x, b.clr + 0.15, -h - 0.02); g.add(ex);
-      const fl = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.9, 10, 1, true), new THREE.MeshBasicMaterial({ color: new THREE.Color(0.6, 1.8, 6), transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false }));
-      fl.rotation.x = -Math.PI / 2; fl.position.set(x, b.clr + 0.15, -h - 0.5); fl.visible = false; fl.userData.keep = true; g.add(fl); ud.flames.push(fl);
-    });
+    // plate + exhausts (supercars: high centre-mounted tips above the diffuser, plate lower)
+    const highEx = look.exhaust === 'hex' || look.exhaust === 'centerTwin';
+    box(0.52, 0.12, 0.02, m.plate, 0, b.clr + (highEx ? 0.2 : 0.4), -h + 0.02, g);
+    addExhausts(g, ud, look.exhaust, W, highEx ? b.tail - 0.3 : b.clr + 0.15, -h - 0.14); // body bevel bulges ~0.14 m past -h
+    // LED daytime-running strips over the headlights
+    [-1, 1].forEach((sd) => { const drl = box(W * 0.25, 0.018, 0.05, m.head, sd * W * 0.3, b.nose - 0.025, h - 0.2, g); drl.rotation.x = -0.25; });
+    // supercar aero: diffuser fins + hood vents
+    if (b.style === 'gt' || b.style === 'hyper') {
+      for (let k = -2; k <= 2; k++) box(0.025, 0.2, 0.42, m.carbon, k * W * 0.11, b.clr + 0.12, -h + 0.24, g);
+      [-1, 1].forEach((sd) => box(W * 0.16, 0.025, 0.32, m.black, sd * W * 0.17, b.beltF - 0.005, b.ws + 0.38, g));
+    }
     // style extras
     if (b.style === 'muscle') { box(0.6, 0.1, 0.9, m.black, 0, b.beltF + 0.04, b.ws + 0.7, g); box(W * 0.9, 0.05, 0.25, paint, 0, b.tail + 0.04, -h + 0.18, g); }
     if (b.style === 'suv') {
@@ -206,7 +350,13 @@ G.CarModels = (function () {
       box(W * 0.7, 0.18, 0.12, m.black, 0, b.clr + 0.2, h + 0.06, g); // bull bar
     }
     if (b.style === 'hatch') box(cabW * 0.85, 0.04, 0.25, paint, 0, b.roof - 0.02, b.rr - 0.1, g);
-    if (b.style === 'sedan' || b.style === 'police') box(W * 0.6, 0.04, 0.12, paint, 0, b.tail + 0.03, -h + 0.12, g);
+    if (b.style === 'taxi') {
+      // roof sign + chequered band along the doors
+      const sign = box(0.62, 0.2, 0.26, m.head, 0, b.roof + 0.12, (b.rf + b.rr) / 2, g); void sign;
+      ud.taxiSign = true;
+      [-1, 1].forEach((sd) => { for (let k = 0; k < 14; k++) for (let r = 0; r < 2; r++) box(0.015, 0.06, 0.14, (k + r) % 2 ? m.black : m.white, sd * (W / 2 + 0.012), b.clr + 0.5 + r * 0.06, -0.95 + k * 0.14, g); });
+    }
+    if (b.style === 'sedan' || b.style === 'police' || b.style === 'taxi') box(W * 0.6, 0.04, 0.12, paint, 0, b.tail + 0.03, -h + 0.12, g);
     if (b.wing === 'big' || b.wing === 'swan') {
       const wy = b.wing === 'swan' ? b.roof + 0.05 : b.tail + 0.32;
       const wing = box(W * 0.95, 0.05, 0.42, m.carbon, 0, wy, -h + 0.3, g); wing.rotation.x = 0.08;
@@ -229,10 +379,10 @@ G.CarModels = (function () {
     // wheels
     const r = b.wheelR, tw = b.style === 'suv' ? 0.34 : 0.28;
     const wx = W / 2 - tw / 2 + 0.01;
-    const rimMat = opts.darkRims ? m.rimDark : m.chrome;
+    void opts;
     [[b.wb / 2, 1], [-b.wb / 2 + (b.style === 'hyper' ? 0.05 : 0), 0]].forEach(([z, front]) => {
       [-1, 1].forEach((sd) => {
-        const wh = makeWheel(r, tw, rimMat, m, b.style !== 'suv');
+        const wh = makeWheel(r, tw, look, sd < 0, discMat);
         wh.steer.position.set(sd * wx, r, z);
         if (sd < 0) wh.steer.rotation.y = Math.PI; // mirror so the face points outwards
         wh.mirror = sd < 0;
@@ -248,7 +398,7 @@ G.CarModels = (function () {
     return g;
   };
 
-  function buildFormula(g, spec, paint, tail, m, opts) {
+  function buildFormula(g, spec, paint, tail, m, look, discMat) {
     const b = spec.body, ud = g.userData;
     const L = b.L, h = L / 2;
     // monocoque + nose
@@ -276,19 +426,17 @@ G.CarModels = (function () {
     const r = b.wheelR;
     [[1.65, 0.34, 1], [-1.6, 0.42, 0]].forEach(([z, tw, front]) => {
       [-1, 1].forEach((sd) => {
-        const wh = makeWheel(front ? r : r + 0.03, tw, m.rimDark, m, false);
+        const wh = makeWheel(front ? r : r + 0.03, tw, look, sd < 0, discMat);
         wh.steer.position.set(sd * 0.82, front ? r : r + 0.03, z);
         if (sd < 0) wh.steer.rotation.y = Math.PI;
         wh.mirror = sd < 0; wh.front = !!front;
         g.add(wh.steer); ud.wheels.push(wh);
       });
     });
-    const fl = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.9, 10, 1, true), new THREE.MeshBasicMaterial({ color: new THREE.Color(0.6, 1.8, 6), transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false }));
-    fl.rotation.x = -Math.PI / 2; fl.position.set(0, 0.55, -h - 0.4); fl.visible = false; fl.userData.keep = true; g.add(fl); ud.flames.push(fl);
+    addExhausts(g, ud, 'center', 0, 0.55, -h - 0.02);
     const blob = new THREE.Mesh(new THREE.PlaneGeometry(2.4, L * 1.1), m.blob);
     blob.rotation.x = -Math.PI / 2; blob.position.y = 0.04; blob.userData.keep = true; g.add(blob); ud.blob = blob;
     ud.wheelR = r;
-    void opts;
     M.mergeByMaterial(g);
     return g;
   }

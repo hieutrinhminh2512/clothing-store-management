@@ -103,6 +103,8 @@ G.Audio = (function () {
   A.cash = () => { [784, 988, 1175, 1568].forEach((f, i) => setTimeout(() => tone(f, 0.18, 0.18, 'triangle'), i * 70)); };
   A.fail = () => { tone(330, 0.3, 0.25, 'sawtooth', 160); };
   A.shift = () => burst(0.08, 1800, 0.08, 'bandpass');
+  // exhaust backfire: low thump + crackle
+  A.backfire = (k) => { burst(0.09, 600 + Math.random() * 600, 0.32 * k); tone(50 + Math.random() * 30, 0.09, 0.28 * k, 'square', 28); };
   A.horn = () => { tone(415, 0.35, 0.2, 'square'); tone(520, 0.35, 0.16, 'square'); };
   A.splash = () => burst(1.0, 1400, 0.5);
   void music;

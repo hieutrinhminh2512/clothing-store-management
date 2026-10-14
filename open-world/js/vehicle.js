@@ -277,6 +277,45 @@ G.Vehicle = class Vehicle {
     this.rpm = G.damp(this.rpm, target, 14, dt);
   }
 
+  // exhaust: blue nitro jet, backfire pops (lift-off at high revs / hard up-shift), hot brake discs
+  exhaustFx(dt) {
+    const ud = this.ud, thr = this.input.throttle;
+    for (const f of ud.flames) {
+      f.visible = this.nitroOn;
+      if (f.visible) { const b = f.userData.base || 0.3; f.scale.set(b * (0.9 + Math.random() * 0.25), b, b * (2.6 + Math.random() * 1.4)); }
+    }
+    if (this.prevThr > 0.6 && thr < 0.1 && this.rpm > 4800 && this.grounded) this.popT = 0.45 + Math.random() * 0.35;
+    if (this.prevGear !== undefined && this.gear > this.prevGear && thr > 0.7) { this.popT = Math.max(this.popT || 0, 0.12); this.bigPop = true; }
+    this.prevThr = thr; this.prevGear = this.gear;
+    if (this.popT > 0) {
+      this.popT -= dt; this.popCd = (this.popCd || 0) - dt;
+      if (this.popCd <= 0) {
+        this.popCd = 0.05 + Math.random() * 0.12; this.popOn = 0.04 + Math.random() * 0.05;
+        this.popK = this.bigPop ? 1.5 : 0.7 + Math.random() * 0.6; this.bigPop = false;
+        if (this.isPlayer && G.Audio.backfire) G.Audio.backfire(this.popK);
+        if (G.FX.spark && ud.tips && ud.tips.length) {
+          this.mesh.updateMatrixWorld();
+          const tip = ud.tips[Math.floor(Math.random() * ud.tips.length)], p = (this._tipV || (this._tipV = new THREE.Vector3())).copy(tip);
+          this.mesh.localToWorld(p);
+          const bx = -Math.sin(this.heading), bz = -Math.cos(this.heading);
+          for (let i = 0; i < 5; i++) G.FX.spark.emit({ x: p.x, y: p.y, z: p.z, vx: this.vx + bx * (4 + Math.random() * 5) + (Math.random() - 0.5) * 3, vy: 0.5 + Math.random() * 2, vz: this.vz + bz * (4 + Math.random() * 5) + (Math.random() - 0.5) * 3, max: 0.2 + Math.random() * 0.25, s0: 0.18, s1: 0.04, r: 3.5, g: 1.4, b: 0.3, a: 1, drag: 2, grav: 6 });
+        }
+      }
+    }
+    let on = false;
+    if (this.popOn > 0) { this.popOn -= dt; on = true; }
+    for (const f of ud.fire) {
+      f.visible = on && !this.nitroOn;
+      if (f.visible) { const b = (f.userData.base || 0.3) * this.popK; f.scale.set(b * (0.8 + Math.random() * 0.4), b, b * (1.4 + Math.random())); }
+    }
+    if (ud.discMat) {
+      const target = this.brakeLight && this.speed > 18 ? Math.min(1, this.speed / 60) : 0;
+      const h = this.discHeat || 0;
+      this.discHeat = G.clamp(target > h ? h + (target - h) * 1.5 * dt : h - 0.12 * dt, 0, 1);
+      ud.discMat.emissiveIntensity = this.discHeat * this.discHeat * 2.2;
+    }
+  }
+
   // effects + mesh sync
   syncMesh(dt) {
     const m = this.mesh, ud = this.ud;
@@ -304,7 +343,7 @@ G.Vehicle = class Vehicle {
       w.spin.rotation.x = w.mirror ? -this.wheelSpin : this.wheelSpin;
       if (w.front) w.steer.rotation.y = (w.mirror ? Math.PI : 0) + this.steerAngle * 1.4;
     }
-    for (const f of ud.flames) { f.visible = this.nitroOn; if (f.visible) f.scale.set(1, 0.8 + Math.random() * 0.5, 1); }
+    if (dt > 0) this.exhaustFx(dt);
     if (ud.tail) ud.tail.color.setRGB(this.brakeLight ? 3.2 : 1.2 + G.R.night * 0.4, 0.04, 0.03);
     if (ud.blob) ud.blob.position.y = 0.04 - this.y + G.W.groundHeight(this.x, this.z);
 

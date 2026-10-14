@@ -16,7 +16,7 @@ G.W = (function () {
   const PAD = { x0: RING + 90, x1: RING + 520, z0: -230, z1: 230 };
   const CONNECT = { x0: RING, x1: RING + 92, z0: -12, z1: 12 };
   const BEACH_Z = 965, BEACH_X = 1650, EXT_X = [lines[3], lines[6], lines[9]];
-  W.RUNWAY = RUNWAY; W.PAD = PAD; W.BEACH_Z = BEACH_Z;
+  W.RUNWAY = RUNWAY; W.PAD = PAD; W.BEACH_Z = BEACH_Z; W.BEACH_X = BEACH_X; W.EXT_X = EXT_X; W.CONNECT = CONNECT;
 
   // Special blocks (bi,bj) -> type
   const special = {

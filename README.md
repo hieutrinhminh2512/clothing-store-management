@@ -13,11 +13,17 @@ Bản thế giới mở nằm trong thư mục `open-world/`. **Mở `open-world
 - **Tài khoản**: đăng nhập / đăng ký / chơi khách, mỗi tài khoản có tiến trình riêng. Tài khoản **admin** có bảng quản trị toàn quyền.
 - Thanh thao tác nhanh trên HUD (xuống xe, đổi xe, gara, bản đồ, menu, thoát), bảng **đổi xe nhanh**, menu tạm dừng có thoát ra màn hình chính.
 
+- **Siêu xe chi tiết hơn**: mâm đúc 8 kiểu (5 chấu, chữ Y, turbine, lưới, beadlock...), lốp có chữ, đĩa phanh khoan lỗ (đỏ rực khi phanh gấp), cùm phanh màu, ống xả titan, **bô bắn lửa** khi nhả ga ở vòng tua cao và lửa xanh khi bật nitro.
+- **GPS kiểu Google Maps**: bấm vào bản đồ (M) hoặc chọn địa điểm → tìm đường ngắn nhất trên toàn bộ mạng đường, vệt mũi tên xanh trên mặt đường, bảng "Rẽ phải sau 150 m vào Nguyễn Huệ", quãng đường + thời gian. Bản đồ cuộn để phóng to, kéo để di chuyển.
+- **Chế độ chơi (phím J)**: 🚕 **Chạy Taxi** (đón khách, chở tới địa chỉ, nhận cước + tiền boa) • 🚓 **Cảnh sát tuần tra** (truy đuổi, ép dừng và bắt xe vi phạm) • 🌐 **Nhiều người chơi** (chọn làm Cảnh sát hoặc Dân thường).
+
+**Chơi nhiều người**: chạy server (`cd racing-game && npm install && npm start`), mở `http://localhost:3000/open-world/`, nhấn **J › Nhiều người chơi**, chọn vai và mã phòng. Bạn bè cùng mạng vào `http://<IP-máy-bạn>:3000/open-world/` với cùng mã phòng. Dân thường chạy quá 120 km/h trong phố gần cảnh sát (hoặc đâm xe cảnh sát) sẽ bị truy nã; cảnh sát ép dừng trong 10 m khoảng 2,5 giây để bắt giữ. Enter để chat.
+
 **Phím lái xe**: W/S ga-phanh • A/D lái • Space phanh tay • Shift nitro • E sự kiện • G gara • M bản đồ • C camera • R đặt lại xe • H còi • T +1 giờ • Esc menu
 
 **Phím mới**: F xuống / lên xe (gần xe giao thông = cướp xe) • V hoặc Tab đổi xe nhanh (phím số 1–9 để chọn) • Khi đi bộ: WASD đi, Shift chạy, Ctrl/Alt đi chậm, Space nhảy, kéo chuột hoặc Q/E để xoay camera • R ở màn kết quả = đua lại
 
-**Tài khoản admin mặc định**: `admin` / `SpeedRush@2026`. Hãy đổi mật khẩu ngay trong bảng admin (F2 hoặc phím `` ` `` › TÀI KHOẢN). Bảng admin có: tiền, mở khoá xe, nâng cấp tối đa, bất tử, nitro vô hạn, hệ số tốc độ, cảnh sát, giờ trong ngày, dịch chuyển, lấy xe bất kỳ, mật độ giao thông, chất lượng đồ hoạ, overlay FPS, quản lý tài khoản.
+**Tài khoản admin mặc định**: `admin` / `SpeedRush@2026` (được tặng sẵn $10,000,000,000 một lần khi đăng nhập). Hãy đổi mật khẩu ngay trong bảng admin (F2 hoặc phím `` ` `` › TÀI KHOẢN). Bảng admin có: tiền, mở khoá xe, nâng cấp tối đa, bất tử, nitro vô hạn, hệ số tốc độ, cảnh sát, giờ trong ngày, dịch chuyển, lấy xe bất kỳ, mật độ giao thông, chất lượng đồ hoạ, overlay FPS, quản lý tài khoản.
 
 > Đăng nhập chỉ chạy phía trình duyệt (lưu trong localStorage) nên **không phải bảo mật thật**: đủ để tách tiến trình giữa các người chơi trên cùng một máy, không dùng để bảo vệ dữ liệu.
 

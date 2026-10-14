@@ -148,6 +148,8 @@ G.Events = (function () {
     return { x: def.start.x + rx * lat - fx * back + fx * 10, z: def.start.z + rz * lat - fz * back + fz * 10, heading: Math.atan2(fx, fz) };
   }
   E.start = function (def, player) {
+    if (G.Jobs && G.Jobs.mode) { G.UI.toast('Kết thúc ca ' + G.Jobs.label() + ' (J) để tham gia sự kiện'); return false; }
+    if (G.Net && G.Net.connected) { G.UI.toast('Sự kiện chỉ chơi được khi không ở phòng online'); return false; }
     if (G.Police.active && def.type !== 'pursuit') { G.UI.toast('🚨 Cắt đuôi cảnh sát trước khi tham gia sự kiện!'); return false; }
     G.Police.cooldown = def.type === 'pursuit' ? 0 : 9999;
     const st = { def, t: 0, countdown: def.type === 'pursuit' ? 0 : 3.5, gate: 0, lap: 0, racers: [], score: 0, done: false, best: 0 };

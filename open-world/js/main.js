@@ -92,6 +92,16 @@ G.Game = (function () {
     camYaw = p.heading;
   }
   Gm.previewCar = function (id) { makePlayer(id); };
+  // drive a temporary vehicle (taxi / police job, multiplayer role); previewCar(G.save.selected) brings the owned car back
+  Gm.useVehicle = function (v) {
+    const old = Gm.player;
+    if (old && old !== v) { scene.remove(old.mesh); v.setPose(old.x, old.z, old.heading); }
+    Gm.parked = Gm.parked.filter((p) => { if (p.owned) { scene.remove(p.mesh); return false; } return true; });
+    scene.add(v.mesh); setupPlayerCar(v); v.syncMesh(0);
+    camYaw = v.heading;
+    return v;
+  };
+  Gm.scene = () => scene;
   Gm.focus = () => (Gm.onFoot ? Gm.char : Gm.player);
 
   // ---------------- On foot: exit / enter / car-jacking ----------------
@@ -154,6 +164,7 @@ G.Game = (function () {
   Gm.exitVehicle = function () {
     if (Gm.onFoot || Gm.state !== 'play' || Gm.garage || enterT || !Gm.char) return false;
     if (G.Events.active) { G.UI.toast('Không thể xuống xe khi đang trong sự kiện'); return false; }
+    if (G.Jobs && G.Jobs.mode) { G.UI.toast('Đang làm ca ' + G.Jobs.label() + ' — nhấn J để kết thúc ca trước khi xuống xe'); return false; }
     const P = Gm.player;
     if (P.speed > 9 || !P.grounded) { G.UI.toast('Giảm tốc để xuống xe'); return false; }
     let side = 1, to = doorPoint(P, 1);
@@ -260,6 +271,8 @@ G.Game = (function () {
   Gm.resume = function () { Gm.simPaused = false; };
   Gm.openGarage = function () {
     if (G.Events.active) { G.UI.toast('Không thể vào gara khi đang trong sự kiện'); return; }
+    if (G.Jobs && G.Jobs.mode) { G.UI.toast('Kết thúc ca ' + G.Jobs.label() + ' (J) trước khi vào gara'); return; }
+    if (G.Net && G.Net.connected && G.Net.role === 'cop') { G.UI.toast('Cảnh sát online không vào gara — đổi vai DÂN THƯỜNG (J › Nhiều người chơi)'); return; }
     if (Gm.onFoot) { G.UI.toast('Lên xe [F] để vào gara'); return; }
     if (G.Police.active) { G.UI.toast('🚨 Cắt đuôi cảnh sát trước!'); return; }
     if (Gm.player.speed > 6) { G.UI.toast('Dừng xe lại để vào gara'); return; }
@@ -352,7 +365,8 @@ G.Game = (function () {
     if (I.consume('KeyT')) { G.save.hour = (G.save.hour + 1) % 24; G.UI.toast('🕒 +1 giờ', 900); }
     if (I.consume('KeyE')) {
       const m = G.Events.nearMarker;
-      if (m && !G.Events.active) { if (Gm.player.speed > 15) G.UI.toast('Giảm tốc để bắt đầu sự kiện'); else G.Events.start(m, Gm.player); }
+      if (m && !G.Events.active && G.Jobs && G.Jobs.mode) G.UI.toast('Kết thúc ca ' + G.Jobs.label() + ' (J) để tham gia sự kiện');
+      else if (m && !G.Events.active) { if (Gm.player.speed > 15) G.UI.toast('Giảm tốc để bắt đầu sự kiện'); else G.Events.start(m, Gm.player); }
     }
   }
   let padYPrev = false;
@@ -432,6 +446,8 @@ G.Game = (function () {
     footHud.speed = footHud.fwdSpeed = C.speed; footHud.nitro = P.nitro; footHud.perf = P.perf;
     G.UI.hud(footHud, G.save.hour);
     G.UI.minimap(C, cops, racers, G.Traffic.cars);
+    G.Nav.update(dt, C, Gm.time);
+    if (G.Net) G.Net.update(dt, C);
     // context hint: what F does here
     const tg = !enterT && !exitT && C.knockT <= 0 ? enterTarget() : null;
     hint(tg ? (tg.t ? '[F] Cướp xe' : '[F] Lên xe') : '');
@@ -449,7 +465,8 @@ G.Game = (function () {
       resetPlayer(); flash = 0.3;
     }
     const cops = G.Police.cops, racers = G.Events.racers();
-    G.Traffic.update(dt, Gm.time, P, [P, ...Gm.parked, ...cops, ...racers]);
+    const extra = [...(G.Jobs ? G.Jobs.bodies() : []), ...(G.Net ? G.Net.bodies() : [])];
+    G.Traffic.update(dt, Gm.time, P, [P, ...Gm.parked, ...cops, ...racers, ...extra]);
     updateParked(dt, P);
     if (npcs.length) updateNpcs(dt);
     G.Events.update(dt, P, Gm.time);
@@ -467,7 +484,7 @@ G.Game = (function () {
       for (const t of G.Traffic.cars) if (t.police && Math.hypot(t.x - P.x, t.z - P.z) < 55) { G.Police.addHeat(1); G.UI.toast('🚨 Cảnh sát phát hiện bạn chạy quá tốc độ!'); break; }
     }
     // dynamic collisions
-    const bodies = nearBodies(P, [P, ...Gm.parked, ...cops, ...racers]);
+    const bodies = nearBodies(P, [P, ...Gm.parked, ...cops, ...racers, ...extra]);
     for (const c of cops) c.isCop = true;
     G.collideBodies(bodies);
     G.Traffic.postCollide();
@@ -479,10 +496,13 @@ G.Game = (function () {
     if (P.landImpact) { if (P.landImpact > 8) { shake = Math.max(shake, Math.min(0.8, P.landImpact / 30)); G.Audio.land(P.landImpact); } P.landImpact = 0; }
     P.syncMesh(dt);
     G.Stunts.update(dt, P, G.Traffic.cars);
-    G.Audio.update(P, G.Police.active ? G.clamp(1 - (G.Police.nearest || 999) / 300, 0, 1) : 0, false);
+    G.Audio.update(P, G.Jobs && G.Jobs.sirenLevel ? G.Jobs.sirenLevel : (G.Police.active ? G.clamp(1 - (G.Police.nearest || 999) / 300, 0, 1) : 0), false);
     if (P.gear !== P._g) { if (P._g !== undefined && P.gear > P._g) G.Audio.shift(); P._g = P.gear; }
     G.UI.hud(P, G.save.hour);
     G.UI.minimap(P, cops, racers, G.Traffic.cars);
+    G.Nav.update(dt, P, Gm.time);
+    if (G.Jobs) G.Jobs.update(dt, P);
+    if (G.Net) G.Net.update(dt, P);
     saveT += dt; if (saveT > 8) { saveT = 0; G.persist(); }
   }
 

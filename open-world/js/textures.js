@@ -168,6 +168,74 @@ G.TEX = (function () {
     x.font = '700 30px "Chakra Petch", Arial, sans-serif'; x.fillText(sub, 256, 180);
     const t = tex(c); t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping; return t;
   };
+  // ---- car detail textures (cylinder caps are mapped circularly: centre = 0.5,0.5) ----
+  // tyre sidewall: rubber with raised white lettering around the ring
+  T.tireSide = function (label) {
+    const S = 512, c = canvas(S, S), x = c.getContext('2d'), m = S / 2;
+    x.fillStyle = '#141414'; x.fillRect(0, 0, S, S);
+    x.strokeStyle = '#1d1d1d'; x.lineWidth = 3;
+    for (let r = m * 0.74; r < m; r += 9) { x.beginPath(); x.arc(m, m, r, 0, 7); x.stroke(); }
+    x.fillStyle = '#d8d8d8'; x.font = '700 30px "Chakra Petch", Arial, sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
+    const words = [label || 'SPEED RUSH', 'P ZERO • 285/30 ZR20'];
+    words.forEach((w, k) => {
+      const a0 = k * Math.PI, step = 0.085;
+      for (let i = 0; i < w.length; i++) {
+        const a = a0 - (w.length - 1) * step / 2 + i * step;
+        x.save(); x.translate(m + Math.cos(a - Math.PI / 2) * m * 0.86, m + Math.sin(a - Math.PI / 2) * m * 0.86); x.rotate(a); x.fillText(w[i], 0, 0); x.restore();
+      }
+    });
+    const t = tex(c, 0, true); t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping; return t;
+  };
+  // tyre tread (lateral surface: u = around, v = across)
+  T.tread = function () {
+    const c = canvas(512, 64), x = c.getContext('2d');
+    x.fillStyle = '#191919'; x.fillRect(0, 0, 512, 64);
+    x.fillStyle = '#0b0b0b';
+    for (let i = 0; i < 512; i += 16) { x.fillRect(i, 0, 5, 18); x.fillRect(i + 8, 46, 5, 18); }
+    x.fillRect(0, 24, 512, 4); x.fillRect(0, 36, 512, 4);
+    return tex(c, 0, true);
+  };
+  // cross-drilled brake disc + hat
+  T.brakeDisc = function () {
+    const S = 256, c = canvas(S, S), x = c.getContext('2d'), m = S / 2;
+    const g = x.createRadialGradient(m, m, m * 0.3, m, m, m);
+    g.addColorStop(0, '#5a5c60'); g.addColorStop(0.5, '#8d9095'); g.addColorStop(1, '#6a6c70');
+    x.fillStyle = g; x.fillRect(0, 0, S, S);
+    x.strokeStyle = 'rgba(40,40,44,0.5)'; x.lineWidth = 1;
+    for (let r = m * 0.45; r < m; r += 3) { x.beginPath(); x.arc(m, m, r, 0, 7); x.stroke(); }
+    x.fillStyle = '#18191b';
+    for (let ring = 0; ring < 3; ring++) for (let i = 0; i < 24; i++) {
+      const a = i / 24 * Math.PI * 2 + ring * 0.09, r = m * (0.58 + ring * 0.12);
+      x.beginPath(); x.arc(m + Math.cos(a) * r, m + Math.sin(a) * r, 3.2, 0, 7); x.fill();
+    }
+    x.fillStyle = '#2c2d30'; x.beginPath(); x.arc(m, m, m * 0.42, 0, 7); x.fill();
+    const t = tex(c, 0, true); t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping; return t;
+  };
+  // heat-tinted titanium for exhaust tips (v runs along the pipe)
+  T.titanium = function () {
+    const c = canvas(16, 256), x = c.getContext('2d');
+    const g = x.createLinearGradient(0, 0, 0, 256);
+    g.addColorStop(0, '#d9dde2'); g.addColorStop(0.35, '#c9b27a'); g.addColorStop(0.55, '#8a5fb8'); g.addColorStop(0.75, '#3f6fd6'); g.addColorStop(1, '#b8c4d4');
+    x.fillStyle = g; x.fillRect(0, 0, 16, 256);
+    const t = tex(c, 0, true); t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping; return t;
+  };
+  // exhaust flame: teardrop, hot white core fading out (u = across, v = 0 at nozzle .. 1 at tip)
+  T.flame = function () {
+    const c = canvas(64, 256), x = c.getContext('2d');
+    const img = x.createImageData(64, 256);
+    for (let j = 0; j < 256; j++) for (let i = 0; i < 64; i++) {
+      const v = j / 255, u = Math.abs(i / 63 - 0.5) * 2;
+      const w = Math.max(0.05, Math.sin(Math.min(1, v * 1.15 + 0.05) * Math.PI) * (1 - v * 0.55));
+      let a = G.clamp(1 - u / w, 0, 1); a = a * a * (1 - v) * Math.min(1, v * 12 + 0.3);
+      const core = G.clamp(1 - u / (w * 0.45), 0, 1) * (1 - v * 1.6);
+      const k = (j * 64 + i) * 4;
+      // greyscale: the material colour gives the hue (orange backfire / blue nitro)
+      const l = 255 * G.clamp(0.55 + core * 0.45, 0, 1);
+      img.data[k] = l; img.data[k + 1] = l; img.data[k + 2] = l; img.data[k + 3] = 255 * a;
+    }
+    x.putImageData(img, 0, 0);
+    const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping; return t;
+  };
   T.carbon = function () {
     const c = canvas(64, 64), x = c.getContext('2d');
     for (let j = 0; j < 8; j++) for (let i = 0; i < 8; i++) {
