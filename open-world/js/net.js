@@ -199,28 +199,48 @@ G.Net = (function () {
     scene().remove(r.v.mesh); if (r.tag) scene().remove(r.tag); if (r.char) r.char.dispose();
     remotes.delete(id);
   }
-  function onSnap(list) {
-    const now = performance.now();
+  // Snapshots are placed on the server's clock (not arrival time), so uneven delivery over the internet
+  // doesn't make remote cars stutter. clockOff = local - server for the fastest packet seen (slowly relaxed);
+  // the render delay grows with measured jitter.
+  let clockOff = null, jitter = 30;
+  function onSnap(list, st) {
+    const arrive = performance.now();
+    let now = arrive;
+    if (typeof st === 'number') {
+      const off = arrive - st;
+      if (clockOff === null || off < clockOff) clockOff = off; else clockOff += 0.5; // drift / route changes
+      jitter += (Math.min(400, off - clockOff) - jitter) * 0.1;
+      now = st + clockOff;
+    }
     for (const s of list) {
       const [id, x, z, y, h, spd, foot, nos, brk, wanted, bust] = s;
       const p = N.players[id]; if (p) p.wanted = wanted;
       if (id === N.id) { N.myBust = bust; continue; }
       const r = ensureRemote(id); if (!r) continue;
-      r.snaps.push([now, x, z, y, h, spd, foot, nos, brk]); if (r.snaps.length > 6) r.snaps.shift();
+      r.snaps.push([now, x, z, y, h, spd, foot, nos, brk]); if (r.snaps.length > 12) r.snaps.shift();
       r.wanted = wanted; r.bust = bust;
     }
     rosterT += 1;
   }
-  // render remotes ~120 ms in the past, interpolating between snapshots
+  // render remotes slightly in the past (100-300 ms depending on jitter), interpolating between snapshots;
+  // if packets are late, keep moving along the last velocity for up to 0.35 s instead of freezing
   function updateRemotes(dt) {
-    const t = performance.now() - 120;
+    const delay = G.clamp(90 + jitter * 1.6, 100, 300);
+    N.delay = delay;
+    const t = performance.now() - delay;
     for (const [id, r] of remotes) {
       const S = r.snaps; if (!S.length) continue;
-      let a = S[0], b = S[S.length - 1];
+      let a = S[0], b = S[S.length - 1], x, z, y, h;
       for (let i = 0; i < S.length - 1; i++) if (S[i][0] <= t && S[i + 1][0] >= t) { a = S[i]; b = S[i + 1]; break; }
-      const k = b[0] > a[0] ? G.clamp((t - a[0]) / (b[0] - a[0]), 0, 1) : 1;
-      const x = G.lerp(a[1], b[1], k), z = G.lerp(a[2], b[2], k), y = G.lerp(a[3], b[3], k), h = a[4] + G.wrapAngle(b[4] - a[4]) * k;
-      const foot = !!b[6], v = r.v;
+      if (t > b[0] && S.length > 1) {
+        const p = S[S.length - 2], span = Math.max(1, b[0] - p[0]), e = Math.min(t - b[0], 350) / span;
+        x = b[1] + (b[1] - p[1]) * e; z = b[2] + (b[2] - p[2]) * e; y = b[3]; h = b[4] + G.wrapAngle(b[4] - p[4]) * e;
+      } else {
+        const k = b[0] > a[0] ? G.clamp((t - a[0]) / (b[0] - a[0]), 0, 1) : 1;
+        x = G.lerp(a[1], b[1], k); z = G.lerp(a[2], b[2], k); y = G.lerp(a[3], b[3], k); h = a[4] + G.wrapAngle(b[4] - a[4]) * k;
+      }
+      const v = r.v;
+      const foot = !!b[6];
       v.vx = (x - v.x) / Math.max(dt, 1e-3); v.vz = (z - v.z) / Math.max(dt, 1e-3);
       if (Math.hypot(v.vx, v.vz) > 150) { v.vx = v.vz = 0; }
       v.x = x; v.z = z; v.y = y; v.heading = h; v.nitroOn = !!b[7]; v.brakeLight = b[8] ? 1 : 0; v.grounded = true;

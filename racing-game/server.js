@@ -348,7 +348,7 @@ setInterval(() => {
       if (now - p.t > 15000) continue; // tab in background / stalled
       snap.push([p.id, +p.x.toFixed(2), +p.z.toFixed(2), +p.y.toFixed(2), +p.h.toFixed(3), +p.spd.toFixed(1), p.foot ? 1 : 0, p.nos ? 1 : 0, p.brk ? 1 : 0, Math.ceil(p.wanted), +(p.bustT / CITY.BUST_T).toFixed(2)]);
     }
-    city.to(r.code).emit('snap', snap);
+    city.to(r.code).emit('snap', snap, now); // server time lets clients smooth out network jitter
   }
 }, 66);
 

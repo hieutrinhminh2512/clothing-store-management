@@ -286,7 +286,7 @@ G.R = (function () {
   // ---------------- Dynamic resolution ----------------
   // Every ~1 s the average frame time is checked: slow -> lower the pixel ratio (down to q.minPR),
   // steady near vsync for 3 s -> raise it again. The 18.5-25 ms dead band avoids ping-ponging.
-  const dyn = { last: 0, acc: 0, n: 0, up: 0, skip: false, frame: 0 };
+  const dyn = { last: 0, acc: 0, n: 0, up: 0, skip: false, frame: 0, slow: 0 };
   function maxPR() { return Math.min(devicePixelRatio || 1, Q().pixelRatio); }
   function setPR(pr) {
     pr = Math.round(pr * 100) / 100;
@@ -306,9 +306,14 @@ G.R = (function () {
     dyn.acc = dyn.n = 0;
     if (avg > 25) {
       dyn.up = 0;
-      if (R.pixelRatio > lo + 0.01) setPR(Math.max(lo, R.pixelRatio - (avg > 40 ? 0.15 : 0.08)));
-      else if (q.shadows && !q.softShadow) dyn.skip = true; // already at the floor: refresh shadows every 2nd frame
+      if (R.pixelRatio > lo + 0.01) { setPR(Math.max(lo, R.pixelRatio - (avg > 40 ? 0.15 : 0.08))); dyn.slow = 0; }
+      else {
+        if (q.shadows && !q.softShadow) dyn.skip = true; // already at the floor: refresh shadows every 2nd frame
+        // still under ~30 fps at the lowest resolution for 4 s: ask the game to drop a quality preset
+        if (avg > 33 && ++dyn.slow >= 4) { dyn.slow = 0; if (R.onSlow) R.onSlow(avg); }
+      }
     } else if (avg < 18.5) {
+      dyn.slow = 0;
       if (dyn.skip) { dyn.skip = false; return; }
       if (++dyn.up >= 3 && R.pixelRatio < hi - 0.01) { dyn.up = 0; setPR(Math.min(hi, R.pixelRatio + 0.05)); }
     } else dyn.up = 0;

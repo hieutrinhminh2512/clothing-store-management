@@ -51,7 +51,16 @@ G.UI = (function () {
     if (G.Auth) { const prev = G.Auth.onChange; G.Auth.onChange = function () { if (prev) prev.apply(this, arguments); applyFxClass(); refreshTitle(); }; }
     $('btnTitleSettings').onclick = () => { $('settingsSlot').appendChild($('settingsBox')); $('settingsModal').classList.remove('hidden'); syncSettings(); };
     $('btnSettingsClose').onclick = () => { $('settingsModal').classList.add('hidden'); $('pause').querySelector('.card').insertBefore($('settingsBox'), $('pauseStats')); };
-    $('setQuality').onchange = (e) => { G.save.settings.quality = e.target.value; G.persist(); G.R.applyQuality(); G.Traffic.setCount(G.QUALITY[e.target.value].traffic); G.FX.resize(); applyFxClass(); };
+    const setQ = (q) => { G.save.settings.quality = q; G.persist(); G.R.applyQuality(); G.Traffic.setCount(G.QUALITY[q].traffic); G.FX.resize(); applyFxClass(); $('setQuality').value = q; };
+    $('setQuality').onchange = (e) => setQ(e.target.value);
+    // weak PC: step the preset down automatically while playing (never up — the player can raise it in Cài đặt)
+    const QORDER = ['low', 'medium', 'high', 'ultra'], QNAME = { low: 'Thấp', medium: 'Trung bình', high: 'Cao', ultra: 'Siêu cao' };
+    G.R.onSlow = (ms) => {
+      if (!G.Game || G.Game.state !== 'play' || G.Game.paused) return;
+      const i = QORDER.indexOf(G.save.settings.quality); if (i <= 0) return;
+      setQ(QORDER[i - 1]);
+      U.toast('🐢 Máy hơi chậm (' + Math.round(1000 / ms) + ' FPS) — tự giảm đồ hoạ xuống ' + QNAME[QORDER[i - 1]] + ' (đổi lại trong Cài đặt)', 3500);
+    };
     $('setVolume').oninput = (e) => { G.save.settings.volume = +e.target.value; G.Audio.setVolume(+e.target.value); G.persist(); };
     $('setTime').onchange = (e) => { G.save.settings.timeScale = +e.target.value; G.persist(); };
     $('setUnits').onchange = (e) => { G.save.settings.units = e.target.value; G.persist(); };
