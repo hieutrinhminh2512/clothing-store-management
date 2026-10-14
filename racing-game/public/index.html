@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🏎️ Game Đua Xe 3D</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@400;600;700&display=swap');
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #0a0a1a;
+      color: #fff;
+      font-family: 'Inter', sans-serif;
+      overflow: hidden;
+      height: 100vh;
+      width: 100vw;
+    }
+
+    /* ===== CANVAS ===== */
+    #gameCanvas {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      z-index: 1;
+      display: none;
+    }
+
+    /* ===== SCREENS ===== */
+    .screen {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 100;
+    }
+    .screen.active { display: flex; }
+
+    /* ===== MENU SCREEN ===== */
+    #menuScreen {
+      background: linear-gradient(135deg, #0a0a2e 0%, #1a0a3e 50%, #0a1a3e 100%);
+    }
+    #menuScreen::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: 
+        radial-gradient(circle at 20% 80%, rgba(255, 0, 100, 0.15) 0%, transparent 50%),
+        radial-gradient(circle at 80% 20%, rgba(0, 100, 255, 0.15) 0%, transparent 50%),
+        radial-gradient(circle at 50% 50%, rgba(100, 0, 255, 0.1) 0%, transparent 60%);
+      pointer-events: none;
+    }
+
+    .menu-container {
+      text-align: center;
+      position: relative;
+      z-index: 2;
+    }
+
+    .game-title {
+      font-family: 'Orbitron', monospace;
+      font-size: 4rem;
+      font-weight: 900;
+      background: linear-gradient(135deg, #ff4444, #ff8800, #ffcc00);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      text-shadow: none;
+      margin-bottom: 0.5rem;
+      letter-spacing: 4px;
+      animation: titlePulse 2s ease-in-out infinite;
+    }
+    @keyframes titlePulse {
+      0%, 100% { filter: brightness(1); transform: scale(1); }
+      50% { filter: brightness(1.2); transform: scale(1.02); }
+    }
+
+    .game-subtitle {
+      font-family: 'Orbitron', monospace;
+      font-size: 1rem;
+      color: #888;
+      margin-bottom: 3rem;
+      letter-spacing: 6px;
+      text-transform: uppercase;
+    }
+
+    .input-group {
+      margin-bottom: 1.5rem;
+    }
+    .input-group label {
+      display: block;
+      font-size: 0.85rem;
+      color: #aaa;
+      margin-bottom: 0.5rem;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+    }
+
+    input[type="text"] {
+      background: rgba(255,255,255,0.08);
+      border: 2px solid rgba(255,255,255,0.15);
+      border-radius: 12px;
+      padding: 14px 20px;
+      color: #fff;
+      font-size: 1.1rem;
+      font-family: 'Orbitron', monospace;
+      text-align: center;
+      width: 320px;
+      outline: none;
+      transition: all 0.3s;
+    }
+    input[type="text"]:focus {
+      border-color: #ff8800;
+      box-shadow: 0 0 20px rgba(255, 136, 0, 0.3);
+    }
+    input[type="text"]::placeholder {
+      color: #555;
+    }
+
+    .btn {
+      display: inline-block;
+      padding: 16px 48px;
+      border: none;
+      border-radius: 12px;
+      font-family: 'Orbitron', monospace;
+      font-size: 1.1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.3s;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      position: relative;
+      overflow: hidden;
+    }
+    .btn:hover { transform: translateY(-2px); }
+    .btn:active { transform: translateY(0); }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #ff4444, #ff8800);
+      color: #fff;
+      box-shadow: 0 8px 30px rgba(255, 68, 68, 0.4);
+    }
+    .btn-primary:hover {
+      box-shadow: 0 12px 40px rgba(255, 68, 68, 0.6);
+    }
+
+    .btn-secondary {
+      background: rgba(255,255,255,0.1);
+      color: #fff;
+      border: 2px solid rgba(255,255,255,0.2);
+    }
+    .btn-secondary:hover {
+      background: rgba(255,255,255,0.15);
+      border-color: rgba(255,255,255,0.4);
+    }
+
+    .btn-small {
+      padding: 10px 24px;
+      font-size: 0.85rem;
+    }
+
+    .menu-buttons {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      align-items: center;
+      margin-top: 1rem;
+    }
+
+    .divider {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin: 1.5rem 0;
+      color: #555;
+    }
+    .divider::before, .divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: rgba(255,255,255,0.1);
+    }
+
+    .join-section {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+      justify-content: center;
+    }
+    .join-section input {
+      width: 200px;
+      text-transform: uppercase;
+      letter-spacing: 4px;
+    }
+
+    /* ===== LOBBY SCREEN ===== */
+    #lobbyScreen {
+      background: linear-gradient(135deg, #0a0a2e 0%, #1a0a3e 50%, #0a1a3e 100%);
+    }
+
+    .lobby-container {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 20px;
+      padding: 2rem;
+      width: 480px;
+      max-width: 95vw;
+      backdrop-filter: blur(20px);
+    }
+
+    .lobby-title {
+      font-family: 'Orbitron', monospace;
+      font-size: 1.5rem;
+      text-align: center;
+      margin-bottom: 1.5rem;
+      color: #ff8800;
+    }
+
+    .room-code-display {
+      text-align: center;
+      margin-bottom: 1.5rem;
+    }
+    .room-code-label {
+      font-size: 0.8rem;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 3px;
+      margin-bottom: 0.5rem;
+    }
+    .room-code-value {
+      font-family: 'Orbitron', monospace;
+      font-size: 2.5rem;
+      font-weight: 900;
+      letter-spacing: 10px;
+      color: #ffcc00;
+      cursor: pointer;
+      transition: all 0.3s;
+      position: relative;
+    }
+    .room-code-value:hover { color: #fff; }
+    .room-code-value .copy-hint {
+      font-size: 0.7rem;
+      color: #666;
+      letter-spacing: 2px;
+      display: block;
+      margin-top: 0.3rem;
+      font-weight: 400;
+    }
+
+    .player-list {
+      list-style: none;
+      margin-bottom: 1.5rem;
+    }
+    .player-list li {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 16px;
+      background: rgba(255,255,255,0.05);
+      border-radius: 10px;
+      margin-bottom: 8px;
+      font-size: 1rem;
+      transition: background 0.3s;
+    }
+    .player-list li:hover { background: rgba(255,255,255,0.08); }
+
+    .player-color-dot {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      box-shadow: 0 0 8px currentColor;
+    }
+
+    .host-badge {
+      font-size: 0.7rem;
+      background: rgba(255, 204, 0, 0.2);
+      color: #ffcc00;
+      padding: 2px 8px;
+      border-radius: 6px;
+      margin-left: auto;
+      font-family: 'Orbitron', monospace;
+    }
+
+    .lobby-buttons {
+      display: flex;
+      gap: 0.5rem;
+      justify-content: center;
+    }
+
+    /* ===== GAME HUD ===== */
+    #gameHUD {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      pointer-events: none;
+      z-index: 50;
+      display: none;
+    }
+
+    .hud-speed {
+      position: absolute;
+      bottom: 30px;
+      right: 30px;
+      text-align: center;
+    }
+    .hud-speed-value {
+      font-family: 'Orbitron', monospace;
+      font-size: 3.5rem;
+      font-weight: 900;
+      color: #fff;
+      text-shadow: 0 0 20px rgba(255,136,0,0.5);
+      line-height: 1;
+    }
+    .hud-speed-unit {
+      font-family: 'Orbitron', monospace;
+      font-size: 0.9rem;
+      color: #888;
+      letter-spacing: 4px;
+    }
+
+    .hud-lap {
+      position: absolute;
+      top: 20px;
+      right: 30px;
+      text-align: right;
+    }
+    .hud-lap-label {
+      font-size: 0.75rem;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+    }
+    .hud-lap-value {
+      font-family: 'Orbitron', monospace;
+      font-size: 2rem;
+      font-weight: 700;
+      color: #ffcc00;
+    }
+
+    .hud-time {
+      position: absolute;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      text-align: center;
+    }
+    .hud-time-value {
+      font-family: 'Orbitron', monospace;
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .hud-position {
+      position: absolute;
+      top: 20px;
+      left: 30px;
+    }
+    .hud-position-label {
+      font-size: 0.75rem;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+    }
+    .hud-position-value {
+      font-family: 'Orbitron', monospace;
+      font-size: 2.5rem;
+      font-weight: 900;
+      color: #fff;
+    }
+    .hud-position-suffix {
+      font-size: 1rem;
+      color: #888;
+    }
+
+    /* Minimap */
+    .hud-minimap {
+      position: absolute;
+      bottom: 30px;
+      left: 30px;
+      width: 180px;
+      height: 180px;
+      background: rgba(0,0,0,0.5);
+      border: 2px solid rgba(255,255,255,0.2);
+      border-radius: 14px;
+      overflow: hidden;
+    }
+    #minimapCanvas {
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Countdown overlay */
+    #countdownOverlay {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 200;
+      pointer-events: none;
+    }
+    #countdownOverlay.active { display: flex; }
+    .countdown-number {
+      font-family: 'Orbitron', monospace;
+      font-size: 10rem;
+      font-weight: 900;
+      color: #fff;
+      text-shadow: 0 0 60px rgba(255,136,0,0.8), 0 0 120px rgba(255,68,68,0.4);
+      animation: countdownPop 0.8s ease-out;
+    }
+    @keyframes countdownPop {
+      0% { transform: scale(2); opacity: 0; }
+      50% { transform: scale(1); opacity: 1; }
+      100% { transform: scale(0.8); opacity: 0.5; }
+    }
+
+    /* ===== RESULTS SCREEN ===== */
+    #resultsScreen {
+      background: rgba(0,0,0,0.85);
+      backdrop-filter: blur(10px);
+    }
+
+    .results-container {
+      text-align: center;
+      max-width: 500px;
+      width: 95%;
+    }
+
+    .results-title {
+      font-family: 'Orbitron', monospace;
+      font-size: 2.5rem;
+      font-weight: 900;
+      background: linear-gradient(135deg, #ffcc00, #ff8800);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 2rem;
+    }
+
+    .results-list {
+      list-style: none;
+      margin-bottom: 2rem;
+    }
+    .results-list li {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 14px 20px;
+      background: rgba(255,255,255,0.05);
+      border-radius: 12px;
+      margin-bottom: 8px;
+      font-size: 1rem;
+    }
+    .results-list li:first-child {
+      background: rgba(255,204,0,0.15);
+      border: 1px solid rgba(255,204,0,0.3);
+    }
+    .result-pos {
+      font-family: 'Orbitron', monospace;
+      font-weight: 900;
+      font-size: 1.5rem;
+      width: 40px;
+      color: #ffcc00;
+    }
+    .result-name { flex: 1; text-align: left; }
+    .result-time {
+      font-family: 'Orbitron', monospace;
+      color: #aaa;
+    }
+
+    /* ===== MOBILE CONTROLS ===== */
+    .mobile-controls {
+      position: fixed;
+      bottom: 20px;
+      left: 0;
+      width: 100%;
+      display: none;
+      justify-content: space-between;
+      padding: 0 20px;
+      z-index: 60;
+      pointer-events: none;
+    }
+    @media (max-width: 768px) {
+      .mobile-controls { display: flex; }
+      .game-title { font-size: 2.5rem; }
+      .hud-minimap { width: 120px; height: 120px; }
+    }
+    .mobile-btn {
+      width: 70px;
+      height: 70px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.15);
+      border: 2px solid rgba(255,255,255,0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.8rem;
+      pointer-events: all;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: none;
+    }
+    .mobile-steer {
+      display: flex;
+      gap: 12px;
+    }
+    .mobile-accel {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    /* ===== NOTIFICATION ===== */
+    .notification {
+      position: fixed;
+      top: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,0.8);
+      border: 1px solid rgba(255,204,0,0.4);
+      border-radius: 12px;
+      padding: 12px 24px;
+      font-family: 'Orbitron', monospace;
+      font-size: 0.9rem;
+      color: #ffcc00;
+      z-index: 300;
+      animation: notifSlide 0.3s ease-out;
+      pointer-events: none;
+    }
+    @keyframes notifSlide {
+      from { transform: translateX(-50%) translateY(-20px); opacity: 0; }
+      to { transform: translateX(-50%) translateY(0); opacity: 1; }
+    }
+
+    /* ===== CONTROLS HINT ===== */
+    .controls-hint {
+      position: absolute;
+      bottom: 120px;
+      left: 50%;
+      transform: translateX(-50%);
+      text-align: center;
+      color: #666;
+      font-size: 0.8rem;
+      letter-spacing: 1px;
+    }
+    .controls-hint kbd {
+      display: inline-block;
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 4px;
+      padding: 2px 8px;
+      font-family: 'Orbitron', monospace;
+      font-size: 0.75rem;
+      color: #aaa;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- GAME CANVAS -->
+  <canvas id="gameCanvas"></canvas>
+
+  <!-- ===== MENU SCREEN ===== -->
+  <div id="menuScreen" class="screen active">
+    <div class="menu-container">
+      <h1 class="game-title">SPEED RUSH</h1>
+      <p class="game-subtitle">Multiplayer 3D Racing</p>
+
+      <div class="input-group">
+        <label>Tên của bạn</label>
+        <input type="text" id="playerNameInput" placeholder="Nhập tên..." maxlength="15">
+      </div>
+
+      <div class="menu-buttons">
+        <button class="btn btn-primary" id="btnCreateRoom">🏁 TẠO PHÒNG</button>
+
+        <div class="divider"><span>HOẶC</span></div>
+
+        <div class="join-section">
+          <input type="text" id="roomCodeInput" placeholder="MÃ PHÒNG" maxlength="6">
+          <button class="btn btn-secondary btn-small" id="btnJoinRoom">THAM GIA</button>
+        </div>
+      </div>
+
+      <div class="controls-hint" style="margin-top: 2rem;">
+        <p>Điều khiển: <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> hoặc <kbd>↑</kbd><kbd>←</kbd><kbd>↓</kbd><kbd>→</kbd></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== LOBBY SCREEN ===== -->
+  <div id="lobbyScreen" class="screen">
+    <div class="lobby-container">
+      <h2 class="lobby-title">PHÒNG CHỜ</h2>
+
+      <div class="room-code-display">
+        <div class="room-code-label">Mã phòng (chia sẻ cho bạn bè)</div>
+        <div class="room-code-value" id="lobbyRoomCode" title="Click để copy">
+          ------
+          <span class="copy-hint">Nhấn để sao chép</span>
+        </div>
+      </div>
+
+      <ul class="player-list" id="playerList"></ul>
+
+      <div class="lobby-buttons">
+        <button class="btn btn-secondary btn-small" id="btnLeaveLobby">RỜI PHÒNG</button>
+        <button class="btn btn-primary btn-small" id="btnStartGame" style="display:none;">BẮT ĐẦU 🏁</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== GAME HUD ===== -->
+  <div id="gameHUD">
+    <div class="hud-position">
+      <div class="hud-position-label">Vị trí</div>
+      <span class="hud-position-value" id="hudPosition">1</span>
+      <span class="hud-position-suffix" id="hudPositionSuffix">st</span>
+    </div>
+
+    <div class="hud-time">
+      <div class="hud-time-value" id="hudTime">00:00.0</div>
+    </div>
+
+    <div class="hud-lap">
+      <div class="hud-lap-label">Vòng đua</div>
+      <div class="hud-lap-value"><span id="hudLap">0</span> / <span id="hudTotalLaps">3</span></div>
+    </div>
+
+    <div class="hud-speed">
+      <div class="hud-speed-value" id="hudSpeed">0</div>
+      <div class="hud-speed-unit">KM/H</div>
+    </div>
+
+    <div class="hud-minimap">
+      <canvas id="minimapCanvas" width="180" height="180"></canvas>
+    </div>
+  </div>
+
+  <!-- ===== COUNTDOWN OVERLAY ===== -->
+  <div id="countdownOverlay">
+    <div class="countdown-number" id="countdownText">3</div>
+  </div>
+
+  <!-- ===== RESULTS SCREEN ===== -->
+  <div id="resultsScreen" class="screen">
+    <div class="results-container">
+      <h2 class="results-title">🏆 KẾT QUẢ</h2>
+      <ul class="results-list" id="resultsList"></ul>
+      <div class="lobby-buttons">
+        <button class="btn btn-secondary btn-small" id="btnBackToLobby" style="display:none;">VỀ PHÒNG CHỜ</button>
+        <button class="btn btn-primary btn-small" id="btnBackToMenu">VỀ MENU</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== MOBILE CONTROLS ===== -->
+  <div class="mobile-controls" id="mobileControls">
+    <div class="mobile-steer">
+      <div class="mobile-btn" data-key="a">◀</div>
+      <div class="mobile-btn" data-key="d">▶</div>
+    </div>
+    <div class="mobile-accel">
+      <div class="mobile-btn" data-key="w">▲</div>
+      <div class="mobile-btn" data-key="s">▼</div>
+    </div>
+  </div>
+
+  <!-- THREE.JS + SOCKET.IO -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/game.js"></script>
+</body>
+</html>
