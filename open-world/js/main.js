@@ -267,6 +267,7 @@ G.Game = (function () {
     }
     let f = (K.KeyW || K.ArrowUp ? 1 : 0) - (K.KeyS || K.ArrowDown ? 1 : 0);
     let r = (K.KeyD || K.ArrowRight ? 1 : 0) - (K.KeyA || K.ArrowLeft ? 1 : 0);
+    if (!f && !r && I.stick && I.stick.active) { f = -I.stick.y; r = I.stick.x; } // phone analog stick
     if (!f && !r) { f = I.state.throttle - I.state.brake; r = -I.state.steer; if (Math.abs(r) < 0.15) r = 0; } // gamepad / touch
     const fx = Math.sin(footYaw), fz = Math.cos(footYaw);
     let mx = fx * f - fz * r, mz = fz * f + fx * r;
@@ -278,11 +279,15 @@ G.Game = (function () {
   window.addEventListener('pointerdown', (e) => { if (e.target && e.target.tagName === 'CANVAS' && e.target.id !== 'minimap') dragging = true; });
   window.addEventListener('pointerup', () => { dragging = false; });
   window.addEventListener('pointermove', (e) => {
-    if (!dragging || !Gm.onFoot) return;
+    if (!dragging || !Gm.onFoot || e.pointerType === 'touch') return; // touch look: G.Mobile -> Gm.lookDelta
     footYaw -= (e.movementX || 0) * 0.006;
     footPitch = G.clamp(footPitch + (e.movementY || 0) * 0.004, -0.25, 1.15);
     lastMouse = Gm.time;
   });
+  Gm.lookDelta = function (dx, dy) {
+    if (!Gm.onFoot) return;
+    footYaw -= dx * 0.006; footPitch = G.clamp(footPitch + dy * 0.004, -0.25, 1.15); lastMouse = Gm.time;
+  };
   window.addEventListener('contextmenu', (e) => { if (Gm.onFoot && e.target && e.target.tagName === 'CANVAS' && e.target.id !== 'bigmapCanvas') e.preventDefault(); });
 
   // ---------------- State changes ----------------
@@ -341,6 +346,7 @@ G.Game = (function () {
     const dt = Math.min(clock.getDelta(), 0.05);
     Gm.time += dt;
     G.input.update(dt);
+    if (G.Mobile && G.Mobile.update) G.Mobile.update();
     handleKeys();
 
     const P = Gm.player;

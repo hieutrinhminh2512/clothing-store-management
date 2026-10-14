@@ -522,12 +522,12 @@ G.GTA = (function () {
   // ---------------- Input ----------------
   T.firing = false;
   window.addEventListener('pointerdown', (e) => {
-    if (!e.target || e.target.id !== 'game') return;
+    if (!e.target || e.target.id !== 'game' || e.pointerType === 'touch') return; // phones: BẮN button
     const g = Gm(); if (!g || g.state !== 'play' || g.paused || g.simPaused || !g.onFoot || g.flying || T.frozen) return;
     if (e.button === 0) T.firing = true;
     if (e.button === 2) T.aiming = T.weapon !== 'fist';
   });
-  window.addEventListener('pointerup', (e) => { if (e.button === 0) T.firing = false; if (e.button === 2) T.aiming = false; });
+  window.addEventListener('pointerup', (e) => { if (e.pointerType === 'touch') return; if (e.button === 0) T.firing = false; if (e.button === 2) T.aiming = false; });
   window.addEventListener('blur', () => { T.firing = false; T.aiming = false; });
   function selectWeapon(id) {
     if (!hasW(id)) { G.UI.toast(WEAP[id].name + ' chưa có — mua ở AMMU-NATION (🔫 trên bản đồ)', 2000); return; }

@@ -109,7 +109,8 @@ G.Air = (function () {
   const GR = G.CFG.GRAVITY;
   A.fly = function (a, dt) {
     const k = K(), inp = G.input.state, frozen = G.GTA && G.GTA.frozen;
-    const up = !frozen && (k.ShiftLeft || k.ShiftRight) ? 1 : 0, down = !frozen && k.Space ? 1 : 0;
+    // touch: N₂O button = up / more throttle, ⛔ = down / less throttle
+    const up = !frozen && (k.ShiftLeft || k.ShiftRight || inp.nitro) ? 1 : 0, down = !frozen && (k.Space || inp.handbrake) ? 1 : 0;
     const fwd = frozen ? 0 : inp.throttle - inp.brake, turn = frozen ? 0 : inp.steer;
     if (a.type === 'heli') flyHeli(a, dt, up, down, fwd, turn); else flyJet(a, dt, up, down, fwd, turn);
     if (!G.Game.flying) return;

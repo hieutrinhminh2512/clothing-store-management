@@ -2385,3 +2385,101 @@ body.gta-busted canvas#game {
   margin-top: 4px;
   max-width: 220px;
 }
+
+/* ================= Phones (G.Mobile): body.is-touch = touch device, body.mobile = small screen ================= */
+#game { touch-action: none; }
+body.is-touch .hint { display: none; }
+
+/* shrink every UI layer except the 3D view and the (finger-sized) touch buttons */
+body.mobile > *:not(#game):not(#touch):not(#rotateTip) { zoom: var(--uiz, 1); }
+
+/* HUD placement on a short landscape screen (values are in zoomed px) */
+body.mobile #qbar { display: none; }                 /* the touch top row has the same actions */
+body.mobile .hud-tl { top: 12px; left: 14px; gap: 6px; }
+body.mobile .gta-bars { top: 132px; bottom: auto; left: 18px; width: 160px; }
+body.mobile .minimap-wrap { top: 148px; bottom: auto; left: 16px; width: 164px; height: 164px; }
+body.mobile #minimap { width: 164px; height: 164px; }
+body.mobile .speedo { left: 50%; right: auto; bottom: 6px; transform: translateX(-50%) scale(0.85); transform-origin: bottom center; }
+body.mobile .gta-weap { top: 110px; bottom: auto; right: 18px; }
+body.mobile .net-board { top: 180px; }
+body.mobile .mission { top: 104px; max-width: 46vw; }
+body.mobile .hud-tr { top: 104px; }
+body.mobile .modal > .card { max-height: calc(100vh / var(--uiz, 1) - 24px); overflow-y: auto; }
+
+/* touch buttons: smaller, hugging the screen edges */
+body.mobile .touch .tbtn { width: 62px; height: 62px; font-size: 1.15rem; }
+body.mobile .touch .tbtn.gas { width: 76px; height: 76px; }
+body.mobile .touch .tbtn.small { width: 50px; height: 50px; font-size: 0.75rem; }
+body.mobile .t-left { left: max(14px, env(safe-area-inset-left)); bottom: 12px; gap: 12px; }
+body.mobile .t-right { right: max(14px, env(safe-area-inset-right)); bottom: 12px; gap: 10px; }
+body.mobile .t-top { top: 6px; left: auto; right: max(8px, env(safe-area-inset-right)); max-width: 64vw; flex-wrap: nowrap; justify-content: flex-end; gap: 5px; }
+body.mobile .touch .tbtn.mini { width: auto; height: 32px; padding: 0 8px; font-size: 0.62rem; border-radius: 8px; white-space: nowrap; }
+
+/* on-foot set: analog stick + actions (hidden while driving) */
+.t-foot { display: none; }
+body.t-onfoot .t-left, body.t-onfoot .t-right { display: none; }
+body.t-onfoot .t-foot { display: block; }
+.t-stick {
+  pointer-events: auto;
+  position: absolute;
+  left: max(22px, env(safe-area-inset-left));
+  bottom: 18px;
+  width: 128px;
+  height: 128px;
+  border-radius: 50%;
+  background: rgba(20, 26, 48, 0.4);
+  border: 2px solid rgba(0, 229, 255, 0.4);
+  touch-action: none;
+}
+.t-knob {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 56px;
+  height: 56px;
+  margin: -28px 0 0 -28px;
+  border-radius: 50%;
+  background: rgba(0, 229, 255, 0.45);
+  border: 2px solid rgba(255, 255, 255, 0.6);
+  pointer-events: none;
+}
+.t-acts {
+  position: absolute;
+  right: max(16px, env(safe-area-inset-right));
+  bottom: 14px;
+  display: grid;
+  grid-template-columns: repeat(2, auto);
+  gap: 10px;
+  align-items: end;
+}
+.touch .t-acts .tbtn { flex-direction: column; gap: 1px; line-height: 1; }
+.touch .t-acts .tbtn b { font-size: 0.55rem; letter-spacing: 0.5px; font-weight: 700; }
+.touch .t-acts .tbtn.fire { width: 74px; height: 74px; background: rgba(255, 45, 80, 0.45); font-size: 1.4rem; }
+.touch .tbtn.on { background: rgba(40, 255, 138, 0.45); }
+/* fewer buttons on wider stick layouts: put fire bottom-right */
+.t-acts .fire { grid-column: 2; grid-row: 2; }
+
+/* flying: N₂O = lên, ⛔ = xuống */
+body.t-air .touch [data-k="nitro"]::after { content: ' ⬆'; }
+body.t-air .touch [data-k="hand"]::after { content: ' ⬇'; }
+
+/* portrait phone: ask to rotate */
+#rotateTip { display: none; }
+body.mobile.portrait #rotateTip {
+  display: flex;
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: #05070f;
+  color: #fff;
+  text-align: center;
+  padding: 24px;
+}
+#rotateTip .rt-i { font-size: 3.4rem; animation: rtSpin 2s ease-in-out infinite; }
+#rotateTip .rt-t { font-family: var(--font-d); font-size: 1.1rem; color: var(--cyan); }
+#rotateTip .rt-s { color: #9aa3c7; font-size: 0.85rem; }
+@keyframes rtSpin { 0%, 30% { transform: rotate(0); } 60%, 100% { transform: rotate(-90deg); } }
